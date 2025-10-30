@@ -1,0 +1,57 @@
+name: 'Auto Release Notes Generator'
+description: 'Automatically generates release notes from PRs, commits, and issues'
+author: 'Your Name'
+
+branding:
+  icon: 'file-text'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+
+  template:
+    description: 'Template preset: standard, detailed, minimal'
+    required: false
+    default: 'standard'
+
+  changelog-file:
+    description: 'Path to CHANGELOG.md file'
+    required: false
+    default: 'CHANGELOG.md'
+
+  version-file:
+    description: 'Enable individual version files in changelog/ directory'
+    required: false
+    default: 'true'
+
+  create-github-release:
+    description: 'Create GitHub Release'
+    required: false
+    default: 'true'
+
+  exclude-labels:
+    description: 'Comma-separated list of labels to exclude'
+    required: false
+    default: 'skip-changelog,no-changelog'
+
+  dry-run:
+    description: 'Run without making any changes'
+    required: false
+    default: 'false'
+
+outputs:
+  release-notes:
+    description: 'Generated release notes content'
+
+  version:
+    description: 'Detected version from tag'
+
+  changelog-url:
+    description: 'URL to the created GitHub Release (if applicable)'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
