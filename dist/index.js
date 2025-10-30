@@ -7331,6 +7331,512 @@ function removeHook(state, name, method) {
 
 /***/ }),
 
+/***/ 4375:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const { Transform } = __nccwpck_require__(2203)
+const parser = __nccwpck_require__(2040)
+const regex = __nccwpck_require__(1568)
+
+function assignOpts (options) {
+  options = {
+    headerPattern: /^(\w*)(?:\(([\w$.\-*/ ]*)\))?: (.*)$/,
+    headerCorrespondence: ['type', 'scope', 'subject'],
+    referenceActions: [
+      'close',
+      'closes',
+      'closed',
+      'fix',
+      'fixes',
+      'fixed',
+      'resolve',
+      'resolves',
+      'resolved'
+    ],
+    issuePrefixes: ['#'],
+    noteKeywords: ['BREAKING CHANGE', 'BREAKING-CHANGE'],
+    fieldPattern: /^-(.*?)-$/,
+    revertPattern: /^Revert\s"([\s\S]*)"\s*This reverts commit (\w*)\./,
+    revertCorrespondence: ['header', 'hash'],
+    warn: function () {},
+    mergePattern: null,
+    mergeCorrespondence: null,
+    ...options
+  }
+
+  if (typeof options.headerPattern === 'string') {
+    options.headerPattern = new RegExp(options.headerPattern)
+  }
+
+  if (typeof options.headerCorrespondence === 'string') {
+    options.headerCorrespondence = options.headerCorrespondence.split(',')
+  }
+
+  if (typeof options.referenceActions === 'string') {
+    options.referenceActions = options.referenceActions.split(',')
+  }
+
+  if (typeof options.issuePrefixes === 'string') {
+    options.issuePrefixes = options.issuePrefixes.split(',')
+  }
+
+  if (typeof options.noteKeywords === 'string') {
+    options.noteKeywords = options.noteKeywords.split(',')
+  }
+
+  if (typeof options.fieldPattern === 'string') {
+    options.fieldPattern = new RegExp(options.fieldPattern)
+  }
+
+  if (typeof options.revertPattern === 'string') {
+    options.revertPattern = new RegExp(options.revertPattern)
+  }
+
+  if (typeof options.revertCorrespondence === 'string') {
+    options.revertCorrespondence = options.revertCorrespondence.split(',')
+  }
+
+  if (typeof options.mergePattern === 'string') {
+    options.mergePattern = new RegExp(options.mergePattern)
+  }
+
+  return options
+}
+
+function conventionalCommitsParser (options) {
+  options = assignOpts(options)
+  const reg = regex(options)
+
+  return new Transform({
+    objectMode: true,
+    highWaterMark: 16,
+    transform (data, enc, cb) {
+      let commit
+
+      try {
+        commit = parser(data.toString(), options, reg)
+        cb(null, commit)
+      } catch (err) {
+        if (options.warn === true) {
+          cb(err)
+        } else {
+          options.warn(err.toString())
+          cb(null, '')
+        }
+      }
+    }
+  })
+}
+
+function sync (commit, options) {
+  options = assignOpts(options)
+  const reg = regex(options)
+
+  return parser(commit, options, reg)
+}
+
+module.exports = conventionalCommitsParser
+module.exports.sync = sync
+
+
+/***/ }),
+
+/***/ 2040:
+/***/ ((module) => {
+
+"use strict";
+
+
+const CATCH_ALL = /()(.+)/gi
+const SCISSOR = '# ------------------------ >8 ------------------------'
+
+function trimOffNewlines (input) {
+  const result = input.match(/[^\r\n]/)
+  if (!result) {
+    return ''
+  }
+  const firstIndex = result.index
+  let lastIndex = input.length - 1
+  while (input[lastIndex] === '\r' || input[lastIndex] === '\n') {
+    lastIndex--
+  }
+  return input.substring(firstIndex, lastIndex + 1)
+}
+
+function append (src, line) {
+  if (src) {
+    src += '\n' + line
+  } else {
+    src = line
+  }
+
+  return src
+}
+
+function getCommentFilter (char) {
+  return function (line) {
+    return line.charAt(0) !== char
+  }
+}
+
+function truncateToScissor (lines) {
+  const scissorIndex = lines.indexOf(SCISSOR)
+
+  if (scissorIndex === -1) {
+    return lines
+  }
+
+  return lines.slice(0, scissorIndex)
+}
+
+function getReferences (input, regex) {
+  const references = []
+  let referenceSentences
+  let referenceMatch
+
+  const reApplicable = input.match(regex.references) !== null
+    ? regex.references
+    : CATCH_ALL
+
+  while ((referenceSentences = reApplicable.exec(input))) {
+    const action = referenceSentences[1] || null
+    const sentence = referenceSentences[2]
+
+    while ((referenceMatch = regex.referenceParts.exec(sentence))) {
+      let owner = null
+      let repository = referenceMatch[1] || ''
+      const ownerRepo = repository.split('/')
+
+      if (ownerRepo.length > 1) {
+        owner = ownerRepo.shift()
+        repository = ownerRepo.join('/')
+      }
+
+      const reference = {
+        action,
+        owner,
+        repository: repository || null,
+        issue: referenceMatch[3],
+        raw: referenceMatch[0],
+        prefix: referenceMatch[2]
+      }
+
+      references.push(reference)
+    }
+  }
+
+  return references
+}
+
+function passTrough () {
+  return true
+}
+
+function parser (raw, options, regex) {
+  if (!raw || !raw.trim()) {
+    throw new TypeError('Expected a raw commit')
+  }
+
+  if (!options || (typeof options === 'object' && !Object.keys(options).length)) {
+    throw new TypeError('Expected options')
+  }
+
+  if (!regex) {
+    throw new TypeError('Expected regex')
+  }
+
+  let currentProcessedField
+  let mentionsMatch
+  const otherFields = {}
+  const commentFilter = typeof options.commentChar === 'string'
+    ? getCommentFilter(options.commentChar)
+    : passTrough
+  const gpgFilter = line => !line.match(/^\s*gpg:/)
+
+  const rawLines = trimOffNewlines(raw).split(/\r?\n/)
+  const lines = truncateToScissor(rawLines).filter(commentFilter).filter(gpgFilter)
+
+  let continueNote = false
+  let isBody = true
+  const headerCorrespondence = options.headerCorrespondence?.map(function (part) {
+    return part.trim()
+  }) || []
+  const revertCorrespondence = options.revertCorrespondence?.map(function (field) {
+    return field.trim()
+  }) || []
+  const mergeCorrespondence = options.mergeCorrespondence?.map(function (field) {
+    return field.trim()
+  }) || []
+
+  let body = null
+  let footer = null
+  let header = null
+  const mentions = []
+  let merge = null
+  const notes = []
+  const references = []
+  let revert = null
+
+  if (lines.length === 0) {
+    return {
+      body,
+      footer,
+      header,
+      mentions,
+      merge,
+      notes,
+      references,
+      revert,
+      scope: null,
+      subject: null,
+      type: null
+    }
+  }
+
+  // msg parts
+  merge = lines.shift()
+  const mergeParts = {}
+  const headerParts = {}
+  body = ''
+  footer = ''
+
+  const mergeMatch = merge.match(options.mergePattern)
+  if (mergeMatch && options.mergePattern) {
+    merge = mergeMatch[0]
+
+    header = lines.shift()
+    while (header !== undefined && !header.trim()) {
+      header = lines.shift()
+    }
+    if (!header) {
+      header = ''
+    }
+
+    mergeCorrespondence.forEach(function (partName, index) {
+      const partValue = mergeMatch[index + 1] || null
+      mergeParts[partName] = partValue
+    })
+  } else {
+    header = merge
+    merge = null
+
+    mergeCorrespondence.forEach(function (partName) {
+      mergeParts[partName] = null
+    })
+  }
+
+  const headerMatch = header.match(options.headerPattern)
+  if (headerMatch) {
+    headerCorrespondence.forEach(function (partName, index) {
+      const partValue = headerMatch[index + 1] || null
+      headerParts[partName] = partValue
+    })
+  } else {
+    headerCorrespondence.forEach(function (partName) {
+      headerParts[partName] = null
+    })
+  }
+
+  references.push(...getReferences(header, {
+    references: regex.references,
+    referenceParts: regex.referenceParts
+  }))
+
+  // body or footer
+  lines.forEach(function (line) {
+    if (options.fieldPattern) {
+      const fieldMatch = options.fieldPattern.exec(line)
+
+      if (fieldMatch) {
+        currentProcessedField = fieldMatch[1]
+
+        return
+      }
+
+      if (currentProcessedField) {
+        otherFields[currentProcessedField] = append(otherFields[currentProcessedField], line)
+
+        return
+      }
+    }
+
+    let referenceMatched
+
+    // this is a new important note
+    const notesMatch = line.match(regex.notes)
+    if (notesMatch) {
+      continueNote = true
+      isBody = false
+      footer = append(footer, line)
+
+      const note = {
+        title: notesMatch[1],
+        text: notesMatch[2]
+      }
+
+      notes.push(note)
+
+      return
+    }
+
+    const lineReferences = getReferences(line, {
+      references: regex.references,
+      referenceParts: regex.referenceParts
+    })
+
+    if (lineReferences.length > 0) {
+      isBody = false
+      referenceMatched = true
+      continueNote = false
+    }
+
+    Array.prototype.push.apply(references, lineReferences)
+
+    if (referenceMatched) {
+      footer = append(footer, line)
+
+      return
+    }
+
+    if (continueNote) {
+      notes[notes.length - 1].text = append(notes[notes.length - 1].text, line)
+      footer = append(footer, line)
+
+      return
+    }
+
+    if (isBody) {
+      body = append(body, line)
+    } else {
+      footer = append(footer, line)
+    }
+  })
+
+  if (options.breakingHeaderPattern && notes.length === 0) {
+    const breakingHeader = header.match(options.breakingHeaderPattern)
+    if (breakingHeader) {
+      const noteText = breakingHeader[3] // the description of the change.
+      notes.push({
+        title: 'BREAKING CHANGE',
+        text: noteText
+      })
+    }
+  }
+
+  while ((mentionsMatch = regex.mentions.exec(raw))) {
+    mentions.push(mentionsMatch[1])
+  }
+
+  // does this commit revert any other commit?
+  const revertMatch = raw.match(options.revertPattern)
+  if (revertMatch) {
+    revert = {}
+    revertCorrespondence.forEach(function (partName, index) {
+      const partValue = revertMatch[index + 1] || null
+      revert[partName] = partValue
+    })
+  } else {
+    revert = null
+  }
+
+  notes.forEach(function (note) {
+    note.text = trimOffNewlines(note.text)
+  })
+
+  const msg = {
+    ...headerParts,
+    ...mergeParts,
+    merge,
+    header,
+    body: body ? trimOffNewlines(body) : null,
+    footer: footer ? trimOffNewlines(footer) : null,
+    notes,
+    references,
+    mentions,
+    revert,
+    ...otherFields
+  }
+
+  return msg
+}
+
+module.exports = parser
+
+
+/***/ }),
+
+/***/ 1568:
+/***/ ((module) => {
+
+"use strict";
+
+
+const reNomatch = /(?!.*)/
+
+function join (array, joiner) {
+  return array
+    .map(function (val) {
+      return val.trim()
+    })
+    .filter(function (val) {
+      return val.length
+    })
+    .join(joiner)
+}
+
+function getNotesRegex (noteKeywords, notesPattern) {
+  if (!noteKeywords) {
+    return reNomatch
+  }
+
+  const noteKeywordsSelection = join(noteKeywords, '|')
+
+  if (!notesPattern) {
+    return new RegExp('^[\\s|*]*(' + noteKeywordsSelection + ')[:\\s]+(.*)', 'i')
+  }
+
+  return notesPattern(noteKeywordsSelection)
+}
+
+function getReferencePartsRegex (issuePrefixes, issuePrefixesCaseSensitive) {
+  if (!issuePrefixes) {
+    return reNomatch
+  }
+
+  const flags = issuePrefixesCaseSensitive ? 'g' : 'gi'
+  return new RegExp('(?:.*?)??\\s*([\\w-\\.\\/]*?)??(' + join(issuePrefixes, '|') + ')([\\w-]*\\d+)', flags)
+}
+
+function getReferencesRegex (referenceActions) {
+  if (!referenceActions) {
+    // matches everything
+    return /()(.+)/gi
+  }
+
+  const joinedKeywords = join(referenceActions, '|')
+  return new RegExp('(' + joinedKeywords + ')(?:\\s+(.*?))(?=(?:' + joinedKeywords + ')|$)', 'gi')
+}
+
+module.exports = function (options) {
+  options = options || {}
+  const reNotes = getNotesRegex(options.noteKeywords, options.notesPattern)
+  const reReferenceParts = getReferencePartsRegex(options.issuePrefixes, options.issuePrefixesCaseSensitive)
+  const reReferences = getReferencesRegex(options.referenceActions)
+
+  return {
+    notes: reNotes,
+    referenceParts: reReferenceParts,
+    references: reReferences,
+    mentions: /@([\w-]+)/g
+  }
+}
+
+
+/***/ }),
+
 /***/ 4150:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -29922,6 +30428,450 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 8270:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * Change categorizer
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.createEmptyCategories = createEmptyCategories;
+exports.categorizeCommits = categorizeCommits;
+exports.categorizePullRequests = categorizePullRequests;
+exports.mergeCategories = mergeCategories;
+exports.getCategoryStats = getCategoryStats;
+exports.logCategoryStats = logCategoryStats;
+const core = __importStar(__nccwpck_require__(7484));
+/**
+ * Type to category mapping
+ */
+const TYPE_TO_CATEGORY = {
+    feat: 'features',
+    fix: 'bugFixes',
+    docs: 'documentation',
+    style: 'style',
+    refactor: 'refactoring',
+    perf: 'performance',
+    test: 'tests',
+    build: 'build',
+    ci: 'ci',
+    chore: 'other',
+};
+/**
+ * Label to category mapping
+ */
+const LABEL_TO_CATEGORY = {
+    feature: 'features',
+    enhancement: 'features',
+    bug: 'bugFixes',
+    bugfix: 'bugFixes',
+    documentation: 'documentation',
+    performance: 'performance',
+    'breaking-change': 'breaking',
+};
+/**
+ * Create empty categorized changes
+ */
+function createEmptyCategories() {
+    return {
+        breaking: [],
+        features: [],
+        bugFixes: [],
+        documentation: [],
+        performance: [],
+        refactoring: [],
+        style: [],
+        tests: [],
+        build: [],
+        ci: [],
+        other: [],
+    };
+}
+/**
+ * Categorize commits into change categories
+ */
+function categorizeCommits(commits) {
+    const categories = createEmptyCategories();
+    for (const commit of commits) {
+        const item = {
+            type: commit.type,
+            description: commit.subject,
+            commitHash: commit.hash,
+            author: commit.author,
+            issues: [],
+            breaking: commit.breaking,
+        };
+        // Breaking changes take priority
+        if (commit.breaking) {
+            categories.breaking.push(item);
+            continue;
+        }
+        // Categorize by type
+        const category = TYPE_TO_CATEGORY[commit.type] || 'other';
+        categories[category].push(item);
+    }
+    return categories;
+}
+/**
+ * Categorize pull requests into change categories
+ */
+function categorizePullRequests(prs) {
+    const categories = createEmptyCategories();
+    for (const pr of prs) {
+        const item = {
+            type: '',
+            description: pr.title,
+            prNumber: pr.number,
+            author: pr.author,
+            issues: pr.closedIssues,
+            breaking: pr.labels.includes('breaking-change'),
+        };
+        // Breaking changes take priority
+        if (item.breaking) {
+            categories.breaking.push(item);
+            continue;
+        }
+        // Try to categorize by label first
+        let categorized = false;
+        for (const label of pr.labels) {
+            const category = LABEL_TO_CATEGORY[label.toLowerCase()];
+            if (category) {
+                categories[category].push(item);
+                categorized = true;
+                break;
+            }
+        }
+        // If not categorized by label, put in other
+        if (!categorized) {
+            categories.other.push(item);
+        }
+    }
+    return categories;
+}
+/**
+ * Merge two categorized changes
+ */
+function mergeCategories(a, b) {
+    return {
+        breaking: [...a.breaking, ...b.breaking],
+        features: [...a.features, ...b.features],
+        bugFixes: [...a.bugFixes, ...b.bugFixes],
+        documentation: [...a.documentation, ...b.documentation],
+        performance: [...a.performance, ...b.performance],
+        refactoring: [...a.refactoring, ...b.refactoring],
+        style: [...a.style, ...b.style],
+        tests: [...a.tests, ...b.tests],
+        build: [...a.build, ...b.build],
+        ci: [...a.ci, ...b.ci],
+        other: [...a.other, ...b.other],
+    };
+}
+/**
+ * Get statistics of categorized changes
+ */
+function getCategoryStats(categories) {
+    return {
+        'Breaking Changes': categories.breaking.length,
+        Features: categories.features.length,
+        'Bug Fixes': categories.bugFixes.length,
+        Documentation: categories.documentation.length,
+        Performance: categories.performance.length,
+        Refactoring: categories.refactoring.length,
+        Style: categories.style.length,
+        Tests: categories.tests.length,
+        Build: categories.build.length,
+        'CI/CD': categories.ci.length,
+        Other: categories.other.length,
+    };
+}
+/**
+ * Log category statistics
+ */
+function logCategoryStats(categories) {
+    const stats = getCategoryStats(categories);
+    core.info('Categorizing changes...');
+    for (const [category, count] of Object.entries(stats)) {
+        if (count > 0) {
+            core.info(`  ${category}: ${count} items`);
+        }
+    }
+}
+
+
+/***/ }),
+
+/***/ 9072:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * Information collector from GitHub API
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Collector = void 0;
+const github_1 = __nccwpck_require__(3228);
+const core = __importStar(__nccwpck_require__(7484));
+class Collector {
+    octokit;
+    owner;
+    repo;
+    constructor(token, owner, repo) {
+        this.octokit = (0, github_1.getOctokit)(token);
+        this.owner = owner;
+        this.repo = repo;
+    }
+    /**
+     * Get all tags in the repository
+     */
+    async getTags() {
+        core.debug('Fetching tags...');
+        const { data: tags } = await this.octokit.rest.repos.listTags({
+            owner: this.owner,
+            repo: this.repo,
+            per_page: 100,
+        });
+        return tags.map((tag) => ({
+            name: tag.name,
+            sha: tag.commit.sha,
+            date: new Date(), // Will be updated with commit date
+        }));
+    }
+    /**
+     * Get tag by name
+     */
+    async getTagByName(tagName) {
+        try {
+            core.debug(`Fetching tag: ${tagName}`);
+            const { data: tag } = await this.octokit.rest.git.getRef({
+                owner: this.owner,
+                repo: this.repo,
+                ref: `tags/${tagName}`,
+            });
+            const { data: commit } = await this.octokit.rest.git.getCommit({
+                owner: this.owner,
+                repo: this.repo,
+                commit_sha: tag.object.sha,
+            });
+            return {
+                name: tagName,
+                sha: tag.object.sha,
+                date: new Date(commit.committer.date),
+            };
+        }
+        catch (error) {
+            core.debug(`Tag not found: ${tagName}`);
+            return null;
+        }
+    }
+    /**
+     * Get commits between two tags
+     */
+    async getCommitsBetweenTags(previousTag, currentTag) {
+        core.debug(`Fetching commits between ${previousTag || 'start'} and ${currentTag}...`);
+        const commits = [];
+        let page = 1;
+        let hasMore = true;
+        while (hasMore) {
+            const { data } = await this.octokit.rest.repos.listCommits({
+                owner: this.owner,
+                repo: this.repo,
+                sha: currentTag,
+                per_page: 100,
+                page,
+            });
+            for (const commit of data) {
+                // Stop if we reached the previous tag
+                if (previousTag && commit.sha === previousTag) {
+                    hasMore = false;
+                    break;
+                }
+                commits.push({
+                    type: '',
+                    subject: commit.commit.message.split('\n')[0],
+                    body: commit.commit.message.split('\n').slice(1).join('\n').trim(),
+                    breaking: false,
+                    hash: commit.sha.substring(0, 7),
+                    author: commit.author?.login || commit.commit.author?.name || 'unknown',
+                    date: new Date(commit.commit.author?.date || Date.now()),
+                });
+            }
+            if (data.length < 100) {
+                hasMore = false;
+            }
+            page++;
+        }
+        core.info(`Found ${commits.length} commits`);
+        return commits;
+    }
+    /**
+     * Get merged pull requests between two tags
+     */
+    async getMergedPRs(since) {
+        core.debug('Fetching merged pull requests...');
+        const prs = [];
+        let page = 1;
+        let hasMore = true;
+        while (hasMore) {
+            const { data } = await this.octokit.rest.pulls.list({
+                owner: this.owner,
+                repo: this.repo,
+                state: 'closed',
+                sort: 'updated',
+                direction: 'desc',
+                per_page: 100,
+                page,
+            });
+            for (const pr of data) {
+                if (!pr.merged_at)
+                    continue;
+                const mergedAt = new Date(pr.merged_at);
+                // Stop if we've gone past the since date
+                if (since && mergedAt < since) {
+                    hasMore = false;
+                    break;
+                }
+                // Extract closed issues from PR body
+                const closedIssues = this.extractClosedIssues(pr.body || '');
+                prs.push({
+                    number: pr.number,
+                    title: pr.title,
+                    body: pr.body,
+                    author: pr.user?.login || 'unknown',
+                    labels: pr.labels.map((label) => typeof label === 'string' ? label : label.name || ''),
+                    mergedAt,
+                    closedIssues,
+                });
+            }
+            if (data.length < 100) {
+                hasMore = false;
+            }
+            page++;
+        }
+        core.info(`Found ${prs.length} merged PRs`);
+        return prs;
+    }
+    /**
+     * Extract closed issue numbers from PR body
+     */
+    extractClosedIssues(body) {
+        const issues = [];
+        // Match patterns like "Closes #123", "Fixes #456", "Resolves #789"
+        const regex = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+        let match;
+        while ((match = regex.exec(body)) !== null) {
+            issues.push(parseInt(match[1], 10));
+        }
+        return issues;
+    }
+    /**
+     * Get issue by number
+     */
+    async getIssue(issueNumber) {
+        try {
+            const { data } = await this.octokit.rest.issues.get({
+                owner: this.owner,
+                repo: this.repo,
+                issue_number: issueNumber,
+            });
+            return {
+                number: data.number,
+                title: data.title,
+                labels: data.labels.map((label) => typeof label === 'string' ? label : label.name || ''),
+            };
+        }
+        catch (error) {
+            core.debug(`Issue not found: #${issueNumber}`);
+            return null;
+        }
+    }
+    /**
+     * Get multiple issues by numbers
+     */
+    async getIssues(issueNumbers) {
+        const issues = [];
+        for (const num of issueNumbers) {
+            const issue = await this.getIssue(num);
+            if (issue) {
+                issues.push(issue);
+            }
+        }
+        return issues;
+    }
+}
+exports.Collector = Collector;
+
+
+/***/ }),
+
 /***/ 1730:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -29963,15 +30913,18 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
-// eslint-disable-next-line @typescript-eslint/require-await
+const collector_1 = __nccwpck_require__(9072);
+const parser_1 = __nccwpck_require__(7196);
+const categorizer_1 = __nccwpck_require__(8270);
+const writer_1 = __nccwpck_require__(164);
+const utils_1 = __nccwpck_require__(1798);
 async function run() {
     try {
         // Get inputs
         const token = core.getInput('github-token', { required: true });
         const template = core.getInput('template') || 'standard';
         const changelogFile = core.getInput('changelog-file') || 'CHANGELOG.md';
-        // TODO: These will be used in future implementation
-        // const versionFile = core.getInput('version-file') === 'true';
+        const versionFile = core.getInput('version-file') === 'true';
         // const createGithubRelease = core.getInput('create-github-release') === 'true';
         // const excludeLabels = core.getInput('exclude-labels') || 'skip-changelog,no-changelog';
         const dryRun = core.getInput('dry-run') === 'true';
@@ -29981,17 +30934,72 @@ async function run() {
         core.info(`Dry run: ${dryRun}`);
         // Get GitHub context
         const context = github.context;
-        // TODO: This will be used in future implementation
-        // const octokit = github.getOctokit(token);
-        core.info(`Repository: ${context.repo.owner}/${context.repo.repo}`);
+        const { owner, repo } = context.repo;
+        core.info(`Repository: ${owner}/${repo}`);
         core.info(`Ref: ${context.ref}`);
-        // Prevent unused variable warning for token
-        void token;
-        // TODO: Implement release notes generation logic
-        // This is a placeholder for now
+        // Extract version from tag
+        const version = (0, utils_1.extractVersion)(context.ref);
+        core.info(`Detected version: ${version}`);
+        // Validate version format
+        if (!(0, utils_1.isValidSemver)(version)) {
+            throw new Error(`Invalid tag format: ${version}. Expected Semantic Versioning (e.g., v1.2.3)`);
+        }
+        // Initialize collector
+        const collector = new collector_1.Collector(token, owner, repo);
+        // Get tags
+        core.info('Fetching tags...');
+        const tags = await collector.getTags();
+        // Find previous tag
+        const currentTagIndex = tags.findIndex((t) => t.name === version);
+        const previousTag = currentTagIndex >= 0 && currentTagIndex < tags.length - 1
+            ? tags[currentTagIndex + 1]
+            : null;
+        if (previousTag) {
+            core.info(`Previous version: ${previousTag.name}`);
+        }
+        else {
+            core.info('No previous tag found (first release)');
+        }
+        // Collect commits
+        core.info(`Fetching commits from ${previousTag?.name || 'start'} to ${version}...`);
+        const commits = await collector.getCommitsBetweenTags(previousTag?.sha || null, version);
+        // Parse commits
+        core.info('Parsing commits with Conventional Commits format...');
+        const parsedCommits = (0, parser_1.parseCommits)(commits);
+        // Categorize changes
+        const categories = (0, categorizer_1.categorizeCommits)(parsedCommits);
+        (0, categorizer_1.logCategoryStats)(categories);
+        // Extract contributors
+        const contributors = Array.from(new Set(parsedCommits.map((c) => c.author).filter((a) => a !== 'unknown'))).sort();
+        core.info(`Contributors: ${contributors.length}`);
+        // Generate compare URL
+        const compareUrl = previousTag
+            ? (0, utils_1.generateCompareUrl)(owner, repo, previousTag.name, version)
+            : undefined;
+        // Prepare release data
+        const releaseData = {
+            version,
+            date: (0, utils_1.formatDate)(new Date()),
+            changes: categories,
+            contributors,
+            compareUrl,
+            owner,
+            repo,
+        };
+        // Generate release notes
+        core.info('Generating release notes...');
+        const releaseNotes = (0, writer_1.generateReleaseNotes)(releaseData);
+        // Write to CHANGELOG.md
+        core.info(`Writing to ${changelogFile}...`);
+        await (0, writer_1.writeChangelog)(changelogFile, releaseNotes, dryRun);
+        // Write version-specific file
+        if (versionFile) {
+            core.info(`Writing version file...`);
+            await (0, writer_1.writeVersionFile)(version, releaseNotes, dryRun);
+        }
         // Set outputs
-        core.setOutput('release-notes', 'Release notes placeholder');
-        core.setOutput('version', 'v1.0.0');
+        core.setOutput('release-notes', releaseNotes);
+        core.setOutput('version', version);
         core.setOutput('changelog-url', '');
         core.info('✓ Release notes generated successfully!');
     }
@@ -30005,6 +31013,360 @@ async function run() {
     }
 }
 void run();
+
+
+/***/ }),
+
+/***/ 7196:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * Conventional Commits parser
+ */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.parseCommit = parseCommit;
+exports.parseCommits = parseCommits;
+exports.extractTypeFromPRTitle = extractTypeFromPRTitle;
+exports.isConventionalCommit = isConventionalCommit;
+const conventional_commits_parser_1 = __importDefault(__nccwpck_require__(4375));
+/**
+ * Parse a commit message using Conventional Commits format
+ */
+function parseCommit(commit) {
+    try {
+        const parsed = conventional_commits_parser_1.default.sync(commit.subject + '\n\n' + (commit.body || ''));
+        return {
+            ...commit,
+            type: parsed.type || '',
+            scope: parsed.scope || undefined,
+            subject: parsed.subject || commit.subject,
+            body: parsed.body || commit.body,
+            breaking: parsed.notes?.some((note) => note.title === 'BREAKING CHANGE') ||
+                commit.subject.includes('!:') ||
+                false,
+        };
+    }
+    catch (error) {
+        // If parsing fails, return the original commit
+        return commit;
+    }
+}
+/**
+ * Parse multiple commits
+ */
+function parseCommits(commits) {
+    return commits.map(parseCommit);
+}
+/**
+ * Extract type from PR title using Conventional Commits format
+ */
+function extractTypeFromPRTitle(title) {
+    const match = title.match(/^(\w+)(?:\([\w-]+\))?:/);
+    return match ? match[1] : null;
+}
+/**
+ * Check if commit message matches Conventional Commits format
+ */
+function isConventionalCommit(message) {
+    const conventionalRegex = /^(\w+)(?:\([\w-]+\))?!?:\s.+/;
+    return conventionalRegex.test(message);
+}
+
+
+/***/ }),
+
+/***/ 1798:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+/**
+ * Utility functions for release notes generation
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.isValidSemver = isValidSemver;
+exports.extractVersion = extractVersion;
+exports.formatDate = formatDate;
+exports.parseRepoUrl = parseRepoUrl;
+exports.generateCompareUrl = generateCompareUrl;
+exports.isPrereleaseVersion = isPrereleaseVersion;
+exports.sleep = sleep;
+/**
+ * Check if a version string is valid Semantic Versioning format
+ * @param version - Version string to validate
+ * @returns True if valid, false otherwise
+ */
+function isValidSemver(version) {
+    const semverRegex = /^v?\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/;
+    return semverRegex.test(version);
+}
+/**
+ * Extract version from a tag name
+ * @param tag - Git tag name (e.g., "v1.0.0", "refs/tags/v1.0.0")
+ * @returns Extracted version string (e.g., "v1.0.0")
+ */
+function extractVersion(tag) {
+    // Remove refs/tags/ prefix if present
+    const cleanTag = tag.replace(/^refs\/tags\//, '');
+    return cleanTag;
+}
+/**
+ * Format date to YYYY-MM-DD
+ * @param date - Date object to format
+ * @returns Formatted date string
+ */
+function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+/**
+ * Parse repository URL to extract owner and repo name
+ * @param url - GitHub repository URL
+ * @returns Object with owner and repo
+ */
+function parseRepoUrl(url) {
+    // Handle different URL formats
+    // https://github.com/owner/repo
+    // git@github.com:owner/repo.git
+    const match = url.match(/github\.com[/:]([^/]+)\/([^/.]+)/);
+    if (!match) {
+        throw new Error(`Invalid GitHub repository URL: ${url}`);
+    }
+    return {
+        owner: match[1],
+        repo: match[2].replace(/\.git$/, ''),
+    };
+}
+/**
+ * Generate GitHub compare URL
+ * @param owner - Repository owner
+ * @param repo - Repository name
+ * @param previousVersion - Previous version tag
+ * @param currentVersion - Current version tag
+ * @returns Compare URL
+ */
+function generateCompareUrl(owner, repo, previousVersion, currentVersion) {
+    return `https://github.com/${owner}/${repo}/compare/${previousVersion}...${currentVersion}`;
+}
+/**
+ * Check if version is a prerelease
+ * @param version - Version string
+ * @returns True if prerelease, false otherwise
+ */
+function isPrereleaseVersion(version) {
+    return /-alpha|-beta|-rc|-pre/.test(version);
+}
+/**
+ * Sleep for specified milliseconds
+ * @param ms - Milliseconds to sleep
+ * @returns Promise that resolves after the delay
+ */
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+
+/***/ }),
+
+/***/ 164:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * CHANGELOG writer
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.generateReleaseNotes = generateReleaseNotes;
+exports.writeChangelog = writeChangelog;
+exports.writeVersionFile = writeVersionFile;
+const fs = __importStar(__nccwpck_require__(1943));
+const path = __importStar(__nccwpck_require__(6928));
+const core = __importStar(__nccwpck_require__(7484));
+/**
+ * Category display names and emojis
+ */
+const CATEGORY_DISPLAY = {
+    breaking: { emoji: '🚨', title: 'Breaking Changes' },
+    features: { emoji: '✨', title: 'Features' },
+    bugFixes: { emoji: '🐛', title: 'Bug Fixes' },
+    documentation: { emoji: '📚', title: 'Documentation' },
+    performance: { emoji: '⚡', title: 'Performance' },
+    refactoring: { emoji: '🔧', title: 'Refactoring' },
+    style: { emoji: '🎨', title: 'Style' },
+    tests: { emoji: '✅', title: 'Tests' },
+    build: { emoji: '🔨', title: 'Build System' },
+    ci: { emoji: '🤖', title: 'CI/CD' },
+    other: { emoji: '📦', title: 'Other Changes' },
+};
+/**
+ * Format a change item
+ */
+function formatChangeItem(item, owner, repo) {
+    let line = `- ${item.description}`;
+    if (item.prNumber) {
+        line += ` ([#${item.prNumber}](https://github.com/${owner}/${repo}/pull/${item.prNumber}))`;
+    }
+    if (item.author) {
+        line += ` @${item.author}`;
+    }
+    return line;
+}
+/**
+ * Format a category section
+ */
+function formatCategory(categoryKey, items, owner, repo) {
+    if (items.length === 0)
+        return '';
+    const display = CATEGORY_DISPLAY[categoryKey] || {
+        emoji: '📦',
+        title: 'Other Changes',
+    };
+    let section = `\n### ${display.emoji} ${display.title}\n\n`;
+    for (const item of items) {
+        section += formatChangeItem(item, owner, repo) + '\n';
+    }
+    return section;
+}
+/**
+ * Generate release notes content
+ */
+function generateReleaseNotes(data) {
+    let content = `## [${data.version}] - ${data.date}\n`;
+    // Add categories in order
+    const categories = [
+        'breaking',
+        'features',
+        'bugFixes',
+        'documentation',
+        'performance',
+        'refactoring',
+        'style',
+        'tests',
+        'build',
+        'ci',
+        'other',
+    ];
+    for (const category of categories) {
+        const items = data.changes[category];
+        content += formatCategory(category, items, data.owner, data.repo);
+    }
+    // Add contributors
+    if (data.contributors.length > 0) {
+        content += `\n### Contributors\n\n`;
+        content += data.contributors.map((c) => `@${c}`).join(', ') + '\n';
+    }
+    // Add compare URL
+    if (data.compareUrl) {
+        content += `\n**Full Changelog**: ${data.compareUrl}\n`;
+    }
+    return content;
+}
+/**
+ * Write content to CHANGELOG.md
+ */
+async function writeChangelog(filePath, newContent, dryRun = false) {
+    if (dryRun) {
+        core.info(`[DRY RUN] Would write to: ${filePath}`);
+        core.info('----------------------------------------');
+        core.info(newContent);
+        core.info('----------------------------------------');
+        return;
+    }
+    let existingContent = '';
+    // Read existing changelog if it exists
+    try {
+        existingContent = await fs.readFile(filePath, 'utf-8');
+    }
+    catch (error) {
+        core.debug(`CHANGELOG file not found, creating new one: ${filePath}`);
+    }
+    // Combine new and existing content
+    let finalContent;
+    if (existingContent) {
+        // Insert new content after the title (if exists) or at the beginning
+        const lines = existingContent.split('\n');
+        const titleIndex = lines.findIndex((line) => line.startsWith('# '));
+        if (titleIndex >= 0) {
+            // Insert after title
+            lines.splice(titleIndex + 1, 0, '\n' + newContent);
+            finalContent = lines.join('\n');
+        }
+        else {
+            // Insert at beginning
+            finalContent = newContent + '\n\n' + existingContent;
+        }
+    }
+    else {
+        // Create new changelog with title
+        finalContent = `# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n${newContent}`;
+    }
+    // Write to file
+    await fs.writeFile(filePath, finalContent, 'utf-8');
+    core.info(`✓ Written to ${filePath}`);
+}
+/**
+ * Write version-specific changelog file
+ */
+async function writeVersionFile(version, content, dryRun = false) {
+    const dirPath = 'changelog';
+    const fileName = `${version.replace(/^v/, '')}.md`;
+    const filePath = path.join(dirPath, fileName);
+    if (dryRun) {
+        core.info(`[DRY RUN] Would write to: ${filePath}`);
+        return;
+    }
+    // Create directory if it doesn't exist
+    try {
+        await fs.mkdir(dirPath, { recursive: true });
+    }
+    catch (error) {
+        // Directory might already exist
+    }
+    // Write version file
+    await fs.writeFile(filePath, content, 'utf-8');
+    core.info(`✓ Written to ${filePath}`);
+}
 
 
 /***/ }),
@@ -30078,6 +31440,14 @@ module.exports = require("events");
 
 "use strict";
 module.exports = require("fs");
+
+/***/ }),
+
+/***/ 1943:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("fs/promises");
 
 /***/ }),
 
