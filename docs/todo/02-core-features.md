@@ -1,7 +1,7 @@
 # TODO: コア機能実装
 
 作成日: 2025-01-31
-ステータス: 🟡 進行中
+ステータス: 🟢 完了
 
 ## 概要
 
@@ -106,14 +106,17 @@
   - 既存内容の保持
   - ファイルのバックアップ（オプション）
 - [ ] 出力フォーマット例
+
   ```markdown
   ## [1.0.0] - 2025-01-31
 
   ### ✨ Features
+
   - Add user authentication (#123) @username
   - Implement dark mode (#125) @username
 
   ### 🐛 Bug Fixes
+
   - Fix login redirect issue (#124) @username
   ```
 
@@ -143,19 +146,19 @@
 
 - [ ] バージョン番号の検証関数
   ```typescript
-  function isValidSemver(version: string): boolean
+  function isValidSemver(version: string): boolean;
   ```
 - [ ] タグ名からバージョン抽出
   ```typescript
-  function extractVersion(tag: string): string
+  function extractVersion(tag: string): string;
   ```
 - [ ] 日付フォーマット関数
   ```typescript
-  function formatDate(date: Date): string // YYYY-MM-DD
+  function formatDate(date: Date): string; // YYYY-MM-DD
   ```
 - [ ] GitHub URLパース
   ```typescript
-  function parseRepoUrl(url: string): { owner: string; repo: string }
+  function parseRepoUrl(url: string): { owner: string; repo: string };
   ```
 
 ## 完了条件
@@ -171,6 +174,7 @@
 ## メモ
 
 ### ファイル構成
+
 ```
 src/
 ├── main.ts           # エントリーポイント
@@ -182,6 +186,7 @@ src/
 ```
 
 ### GitHub API使用例
+
 ```typescript
 import { getOctokit } from '@actions/github';
 
@@ -196,6 +201,7 @@ const { data: pulls } = await octokit.rest.pulls.list({
 ```
 
 ### Conventional Commits解析例
+
 ```typescript
 import parser from 'conventional-commits-parser';
 
@@ -204,6 +210,7 @@ const parsed = parser.sync('feat(auth): add OAuth support\n\nBREAKING CHANGE: re
 ```
 
 ### 参考リンク
+
 - [Octokit REST API](https://octokit.github.io/rest.js/)
 - [Conventional Commits Parser](https://github.com/conventional-changelog/conventional-changelog)
 - [Keep a Changelog](https://keepachangelog.com/)

@@ -30872,6 +30872,242 @@ exports.Collector = Collector;
 
 /***/ }),
 
+/***/ 305:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+/**
+ * Contributors management
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.isBotAccount = isBotAccount;
+exports.extractContributorsFromCommits = extractContributorsFromCommits;
+exports.extractContributorsFromPRs = extractContributorsFromPRs;
+exports.mergeContributors = mergeContributors;
+exports.getContributorStats = getContributorStats;
+exports.formatContributors = formatContributors;
+/**
+ * Bot account patterns to exclude
+ */
+const BOT_PATTERNS = [
+    'dependabot[bot]',
+    'renovate[bot]',
+    'github-actions[bot]',
+    'greenkeeper[bot]',
+    'snyk-bot',
+    'codecov-io',
+    'allcontributors[bot]',
+];
+/**
+ * Check if username is a bot account
+ */
+function isBotAccount(username) {
+    const lower = username.toLowerCase();
+    return BOT_PATTERNS.some((pattern) => lower.includes(pattern.toLowerCase()));
+}
+/**
+ * Extract contributors from commits
+ */
+function extractContributorsFromCommits(commits) {
+    const contributors = new Set();
+    for (const commit of commits) {
+        if (commit.author && commit.author !== 'unknown' && !isBotAccount(commit.author)) {
+            contributors.add(commit.author);
+        }
+    }
+    return Array.from(contributors);
+}
+/**
+ * Extract contributors from PRs
+ */
+function extractContributorsFromPRs(prs) {
+    const contributors = new Set();
+    for (const pr of prs) {
+        if (pr.author && pr.author !== 'unknown' && !isBotAccount(pr.author)) {
+            contributors.add(pr.author);
+        }
+    }
+    return Array.from(contributors);
+}
+/**
+ * Merge and deduplicate contributors from multiple sources
+ */
+function mergeContributors(...contributorLists) {
+    const allContributors = new Set();
+    for (const list of contributorLists) {
+        for (const contributor of list) {
+            if (contributor && contributor !== 'unknown' && !isBotAccount(contributor)) {
+                allContributors.add(contributor);
+            }
+        }
+    }
+    return Array.from(allContributors).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+}
+/**
+ * Get contributor count by username
+ */
+function getContributorStats(commits, prs) {
+    const stats = new Map();
+    // Count commits
+    for (const commit of commits) {
+        if (commit.author && !isBotAccount(commit.author)) {
+            const current = stats.get(commit.author) || { commits: 0, prs: 0 };
+            current.commits++;
+            stats.set(commit.author, current);
+        }
+    }
+    // Count PRs
+    for (const pr of prs) {
+        if (pr.author && !isBotAccount(pr.author)) {
+            const current = stats.get(pr.author) || { commits: 0, prs: 0 };
+            current.prs++;
+            stats.set(pr.author, current);
+        }
+    }
+    return stats;
+}
+/**
+ * Format contributors list
+ */
+function formatContributors(contributors) {
+    if (contributors.length === 0) {
+        return '';
+    }
+    return contributors.map((c) => `@${c}`).join(', ');
+}
+
+
+/***/ }),
+
+/***/ 9037:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * Filter for excluding commits and PRs
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.isChoreCommit = isChoreCommit;
+exports.isMergeCommit = isMergeCommit;
+exports.filterChoreCommits = filterChoreCommits;
+exports.filterMergeCommits = filterMergeCommits;
+exports.hasExcludeLabel = hasExcludeLabel;
+exports.filterPRsByLabels = filterPRsByLabels;
+exports.applyCommitFilters = applyCommitFilters;
+exports.applyPRFilters = applyPRFilters;
+const core = __importStar(__nccwpck_require__(7484));
+/**
+ * Check if commit is a chore commit
+ */
+function isChoreCommit(commit) {
+    return /^chore(\(.*?\))?:/i.test(commit.subject);
+}
+/**
+ * Check if commit is a merge commit
+ */
+function isMergeCommit(commit) {
+    return /^merge (branch|pull request)/i.test(commit.subject);
+}
+/**
+ * Filter out chore commits
+ */
+function filterChoreCommits(commits) {
+    const filtered = commits.filter((commit) => !isChoreCommit(commit));
+    const excluded = commits.length - filtered.length;
+    if (excluded > 0) {
+        core.info(`Excluding ${excluded} chore commits`);
+    }
+    return filtered;
+}
+/**
+ * Filter out merge commits
+ */
+function filterMergeCommits(commits) {
+    const filtered = commits.filter((commit) => !isMergeCommit(commit));
+    const excluded = commits.length - filtered.length;
+    if (excluded > 0) {
+        core.info(`Excluding ${excluded} merge commits`);
+    }
+    return filtered;
+}
+/**
+ * Check if PR has any of the exclude labels
+ */
+function hasExcludeLabel(pr, excludeLabels) {
+    return pr.labels.some((label) => excludeLabels.some((exclude) => label.toLowerCase() === exclude.toLowerCase()));
+}
+/**
+ * Filter out PRs with exclude labels
+ */
+function filterPRsByLabels(prs, excludeLabels) {
+    if (excludeLabels.length === 0) {
+        return prs;
+    }
+    const filtered = prs.filter((pr) => !hasExcludeLabel(pr, excludeLabels));
+    const excluded = prs.length - filtered.length;
+    if (excluded > 0) {
+        core.info(`Excluding ${excluded} PRs with labels: ${excludeLabels.join(', ')}`);
+    }
+    return filtered;
+}
+/**
+ * Apply all filters to commits
+ */
+function applyCommitFilters(commits, options = {}) {
+    let filtered = commits;
+    if (options.excludeChore !== false) {
+        filtered = filterChoreCommits(filtered);
+    }
+    if (options.excludeMerge === true) {
+        filtered = filterMergeCommits(filtered);
+    }
+    return filtered;
+}
+/**
+ * Apply all filters to PRs
+ */
+function applyPRFilters(prs, excludeLabels) {
+    return filterPRsByLabels(prs, excludeLabels);
+}
+
+
+/***/ }),
+
 /***/ 1730:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -30918,6 +31154,9 @@ const parser_1 = __nccwpck_require__(7196);
 const categorizer_1 = __nccwpck_require__(8270);
 const writer_1 = __nccwpck_require__(164);
 const utils_1 = __nccwpck_require__(1798);
+const filter_1 = __nccwpck_require__(9037);
+const contributors_1 = __nccwpck_require__(305);
+const releases_1 = __nccwpck_require__(1425);
 async function run() {
     try {
         // Get inputs
@@ -30925,8 +31164,10 @@ async function run() {
         const template = core.getInput('template') || 'standard';
         const changelogFile = core.getInput('changelog-file') || 'CHANGELOG.md';
         const versionFile = core.getInput('version-file') === 'true';
-        // const createGithubRelease = core.getInput('create-github-release') === 'true';
-        // const excludeLabels = core.getInput('exclude-labels') || 'skip-changelog,no-changelog';
+        const createGithubRelease = core.getInput('create-github-release') === 'true';
+        // TODO: This will be used when PR filtering is implemented
+        // const excludeLabelsInput = core.getInput('exclude-labels') || 'skip-changelog,no-changelog';
+        // const excludeLabels = excludeLabelsInput.split(',').map((s) => s.trim());
         const dryRun = core.getInput('dry-run') === 'true';
         core.info('Starting release notes generation...');
         core.info(`Template: ${template}`);
@@ -30962,15 +31203,22 @@ async function run() {
         }
         // Collect commits
         core.info(`Fetching commits from ${previousTag?.name || 'start'} to ${version}...`);
-        const commits = await collector.getCommitsBetweenTags(previousTag?.sha || null, version);
+        let commits = await collector.getCommitsBetweenTags(previousTag?.sha || null, version);
+        // Apply filters to commits
+        core.info('Applying filters...');
+        commits = (0, filter_1.applyCommitFilters)(commits, {
+            excludeChore: true,
+            excludeMerge: false,
+        });
         // Parse commits
         core.info('Parsing commits with Conventional Commits format...');
         const parsedCommits = (0, parser_1.parseCommits)(commits);
         // Categorize changes
         const categories = (0, categorizer_1.categorizeCommits)(parsedCommits);
         (0, categorizer_1.logCategoryStats)(categories);
-        // Extract contributors
-        const contributors = Array.from(new Set(parsedCommits.map((c) => c.author).filter((a) => a !== 'unknown'))).sort();
+        // Extract contributors with bot filtering
+        const commitContributors = (0, contributors_1.extractContributorsFromCommits)(parsedCommits);
+        const contributors = (0, contributors_1.mergeContributors)(commitContributors);
         core.info(`Contributors: ${contributors.length}`);
         // Generate compare URL
         const compareUrl = previousTag
@@ -30997,10 +31245,22 @@ async function run() {
             core.info(`Writing version file...`);
             await (0, writer_1.writeVersionFile)(version, releaseNotes, dryRun);
         }
+        // Create GitHub Release
+        let releaseUrl = '';
+        if (createGithubRelease) {
+            if (dryRun) {
+                core.info(`[DRY RUN] Would create GitHub Release: ${version}`);
+            }
+            else {
+                core.info('Creating GitHub Release...');
+                const releasesManager = new releases_1.ReleasesManager(token, owner, repo);
+                releaseUrl = await releasesManager.createRelease(version, releaseNotes);
+            }
+        }
         // Set outputs
         core.setOutput('release-notes', releaseNotes);
         core.setOutput('version', version);
-        core.setOutput('changelog-url', '');
+        core.setOutput('changelog-url', releaseUrl);
         core.info('✓ Release notes generated successfully!');
     }
     catch (error) {
@@ -31076,6 +31336,162 @@ function isConventionalCommit(message) {
     const conventionalRegex = /^(\w+)(?:\([\w-]+\))?!?:\s.+/;
     return conventionalRegex.test(message);
 }
+
+
+/***/ }),
+
+/***/ 1425:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * GitHub Releases management
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.ReleasesManager = void 0;
+const github_1 = __nccwpck_require__(3228);
+const core = __importStar(__nccwpck_require__(7484));
+const utils_1 = __nccwpck_require__(1798);
+class ReleasesManager {
+    octokit;
+    owner;
+    repo;
+    constructor(token, owner, repo) {
+        this.octokit = (0, github_1.getOctokit)(token);
+        this.owner = owner;
+        this.repo = repo;
+    }
+    /**
+     * Check if a release already exists for a tag
+     */
+    async releaseExists(tagName) {
+        try {
+            await this.octokit.rest.repos.getReleaseByTag({
+                owner: this.owner,
+                repo: this.repo,
+                tag: tagName,
+            });
+            return true;
+        }
+        catch (error) {
+            return false;
+        }
+    }
+    /**
+     * Create a GitHub Release
+     */
+    async createRelease(tagName, body, options = {}) {
+        const { draft = false, prerelease = (0, utils_1.isPrereleaseVersion)(tagName), name = `Release ${tagName}`, } = options;
+        core.info(`Creating GitHub Release: ${tagName}`);
+        core.debug(`Draft: ${draft}, Prerelease: ${prerelease}`);
+        // Check if release already exists
+        const exists = await this.releaseExists(tagName);
+        if (exists) {
+            core.warning(`Release ${tagName} already exists, skipping creation`);
+            return `https://github.com/${this.owner}/${this.repo}/releases/tag/${tagName}`;
+        }
+        // Create the release
+        const { data } = await this.octokit.rest.repos.createRelease({
+            owner: this.owner,
+            repo: this.repo,
+            tag_name: tagName,
+            name,
+            body,
+            draft,
+            prerelease,
+        });
+        core.info(`✓ GitHub Release created: ${data.html_url}`);
+        return data.html_url;
+    }
+    /**
+     * Update an existing GitHub Release
+     */
+    async updateRelease(tagName, body, options = {}) {
+        core.info(`Updating GitHub Release: ${tagName}`);
+        // Get the existing release
+        const { data: release } = await this.octokit.rest.repos.getReleaseByTag({
+            owner: this.owner,
+            repo: this.repo,
+            tag: tagName,
+        });
+        // Update the release
+        const { data } = await this.octokit.rest.repos.updateRelease({
+            owner: this.owner,
+            repo: this.repo,
+            release_id: release.id,
+            body,
+            draft: options.draft,
+            prerelease: options.prerelease,
+            name: options.name,
+        });
+        core.info(`✓ GitHub Release updated: ${data.html_url}`);
+        return data.html_url;
+    }
+    /**
+     * Create or update a GitHub Release
+     */
+    async createOrUpdateRelease(tagName, body, options = {}) {
+        const exists = await this.releaseExists(tagName);
+        if (exists) {
+            return this.updateRelease(tagName, body, options);
+        }
+        else {
+            return this.createRelease(tagName, body, options);
+        }
+    }
+    /**
+     * Delete a GitHub Release
+     */
+    async deleteRelease(tagName) {
+        core.info(`Deleting GitHub Release: ${tagName}`);
+        const { data: release } = await this.octokit.rest.repos.getReleaseByTag({
+            owner: this.owner,
+            repo: this.repo,
+            tag: tagName,
+        });
+        await this.octokit.rest.repos.deleteRelease({
+            owner: this.owner,
+            repo: this.repo,
+            release_id: release.id,
+        });
+        core.info(`✓ GitHub Release deleted: ${tagName}`);
+    }
+}
+exports.ReleasesManager = ReleasesManager;
 
 
 /***/ }),

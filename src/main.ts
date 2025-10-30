@@ -10,6 +10,9 @@ import {
   generateCompareUrl,
   isValidSemver,
 } from './utils';
+import { applyCommitFilters } from './filter';
+import { mergeContributors, extractContributorsFromCommits } from './contributors';
+import { ReleasesManager } from './releases';
 import type { ReleaseData } from './types';
 
 async function run(): Promise<void> {
@@ -19,8 +22,10 @@ async function run(): Promise<void> {
     const template = core.getInput('template') || 'standard';
     const changelogFile = core.getInput('changelog-file') || 'CHANGELOG.md';
     const versionFile = core.getInput('version-file') === 'true';
-    // const createGithubRelease = core.getInput('create-github-release') === 'true';
-    // const excludeLabels = core.getInput('exclude-labels') || 'skip-changelog,no-changelog';
+    const createGithubRelease = core.getInput('create-github-release') === 'true';
+    // TODO: This will be used when PR filtering is implemented
+    // const excludeLabelsInput = core.getInput('exclude-labels') || 'skip-changelog,no-changelog';
+    // const excludeLabels = excludeLabelsInput.split(',').map((s) => s.trim());
     const dryRun = core.getInput('dry-run') === 'true';
 
     core.info('Starting release notes generation...');
@@ -55,9 +60,10 @@ async function run(): Promise<void> {
 
     // Find previous tag
     const currentTagIndex = tags.findIndex((t) => t.name === version);
-    const previousTag = currentTagIndex >= 0 && currentTagIndex < tags.length - 1
-      ? tags[currentTagIndex + 1]
-      : null;
+    const previousTag =
+      currentTagIndex >= 0 && currentTagIndex < tags.length - 1
+        ? tags[currentTagIndex + 1]
+        : null;
 
     if (previousTag) {
       core.info(`Previous version: ${previousTag.name}`);
@@ -67,10 +73,14 @@ async function run(): Promise<void> {
 
     // Collect commits
     core.info(`Fetching commits from ${previousTag?.name || 'start'} to ${version}...`);
-    const commits = await collector.getCommitsBetweenTags(
-      previousTag?.sha || null,
-      version
-    );
+    let commits = await collector.getCommitsBetweenTags(previousTag?.sha || null, version);
+
+    // Apply filters to commits
+    core.info('Applying filters...');
+    commits = applyCommitFilters(commits, {
+      excludeChore: true,
+      excludeMerge: false,
+    });
 
     // Parse commits
     core.info('Parsing commits with Conventional Commits format...');
@@ -80,10 +90,9 @@ async function run(): Promise<void> {
     const categories = categorizeCommits(parsedCommits);
     logCategoryStats(categories);
 
-    // Extract contributors
-    const contributors = Array.from(
-      new Set(parsedCommits.map((c) => c.author).filter((a) => a !== 'unknown'))
-    ).sort();
+    // Extract contributors with bot filtering
+    const commitContributors = extractContributorsFromCommits(parsedCommits);
+    const contributors = mergeContributors(commitContributors);
     core.info(`Contributors: ${contributors.length}`);
 
     // Generate compare URL
@@ -116,10 +125,22 @@ async function run(): Promise<void> {
       await writeVersionFile(version, releaseNotes, dryRun);
     }
 
+    // Create GitHub Release
+    let releaseUrl = '';
+    if (createGithubRelease) {
+      if (dryRun) {
+        core.info(`[DRY RUN] Would create GitHub Release: ${version}`);
+      } else {
+        core.info('Creating GitHub Release...');
+        const releasesManager = new ReleasesManager(token, owner, repo);
+        releaseUrl = await releasesManager.createRelease(version, releaseNotes);
+      }
+    }
+
     // Set outputs
     core.setOutput('release-notes', releaseNotes);
     core.setOutput('version', version);
-    core.setOutput('changelog-url', '');
+    core.setOutput('changelog-url', releaseUrl);
 
     core.info('✓ Release notes generated successfully!');
   } catch (error) {

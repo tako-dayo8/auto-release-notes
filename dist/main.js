@@ -40,6 +40,9 @@ const parser_1 = require("./parser");
 const categorizer_1 = require("./categorizer");
 const writer_1 = require("./writer");
 const utils_1 = require("./utils");
+const filter_1 = require("./filter");
+const contributors_1 = require("./contributors");
+const releases_1 = require("./releases");
 async function run() {
     try {
         // Get inputs
@@ -47,8 +50,10 @@ async function run() {
         const template = core.getInput('template') || 'standard';
         const changelogFile = core.getInput('changelog-file') || 'CHANGELOG.md';
         const versionFile = core.getInput('version-file') === 'true';
-        // const createGithubRelease = core.getInput('create-github-release') === 'true';
-        // const excludeLabels = core.getInput('exclude-labels') || 'skip-changelog,no-changelog';
+        const createGithubRelease = core.getInput('create-github-release') === 'true';
+        // TODO: This will be used when PR filtering is implemented
+        // const excludeLabelsInput = core.getInput('exclude-labels') || 'skip-changelog,no-changelog';
+        // const excludeLabels = excludeLabelsInput.split(',').map((s) => s.trim());
         const dryRun = core.getInput('dry-run') === 'true';
         core.info('Starting release notes generation...');
         core.info(`Template: ${template}`);
@@ -84,15 +89,22 @@ async function run() {
         }
         // Collect commits
         core.info(`Fetching commits from ${previousTag?.name || 'start'} to ${version}...`);
-        const commits = await collector.getCommitsBetweenTags(previousTag?.sha || null, version);
+        let commits = await collector.getCommitsBetweenTags(previousTag?.sha || null, version);
+        // Apply filters to commits
+        core.info('Applying filters...');
+        commits = (0, filter_1.applyCommitFilters)(commits, {
+            excludeChore: true,
+            excludeMerge: false,
+        });
         // Parse commits
         core.info('Parsing commits with Conventional Commits format...');
         const parsedCommits = (0, parser_1.parseCommits)(commits);
         // Categorize changes
         const categories = (0, categorizer_1.categorizeCommits)(parsedCommits);
         (0, categorizer_1.logCategoryStats)(categories);
-        // Extract contributors
-        const contributors = Array.from(new Set(parsedCommits.map((c) => c.author).filter((a) => a !== 'unknown'))).sort();
+        // Extract contributors with bot filtering
+        const commitContributors = (0, contributors_1.extractContributorsFromCommits)(parsedCommits);
+        const contributors = (0, contributors_1.mergeContributors)(commitContributors);
         core.info(`Contributors: ${contributors.length}`);
         // Generate compare URL
         const compareUrl = previousTag
@@ -119,10 +131,22 @@ async function run() {
             core.info(`Writing version file...`);
             await (0, writer_1.writeVersionFile)(version, releaseNotes, dryRun);
         }
+        // Create GitHub Release
+        let releaseUrl = '';
+        if (createGithubRelease) {
+            if (dryRun) {
+                core.info(`[DRY RUN] Would create GitHub Release: ${version}`);
+            }
+            else {
+                core.info('Creating GitHub Release...');
+                const releasesManager = new releases_1.ReleasesManager(token, owner, repo);
+                releaseUrl = await releasesManager.createRelease(version, releaseNotes);
+            }
+        }
         // Set outputs
         core.setOutput('release-notes', releaseNotes);
         core.setOutput('version', version);
-        core.setOutput('changelog-url', '');
+        core.setOutput('changelog-url', releaseUrl);
         core.info('✓ Release notes generated successfully!');
     }
     catch (error) {
