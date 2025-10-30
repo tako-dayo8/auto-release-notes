@@ -8,55 +8,70 @@ import {
   extractVersion,
   formatDate,
   generateCompareUrl,
-  isValidSemver,
 } from './utils';
 import { applyCommitFilters } from './filter';
 import { mergeContributors, extractContributorsFromCommits } from './contributors';
 import { ReleasesManager } from './releases';
+import { validateInputs } from './validator';
+import { withGitHubRetry } from './retry';
+import * as logger from './logger';
 import type { ReleaseData } from './types';
 
 async function run(): Promise<void> {
+  const startTime = Date.now();
+
   try {
+    logger.section('Auto Release Notes Generator');
+
     // Get inputs
     const token = core.getInput('github-token', { required: true });
     const template = core.getInput('template') || 'standard';
     const changelogFile = core.getInput('changelog-file') || 'CHANGELOG.md';
-    const versionFile = core.getInput('version-file') === 'true';
-    const createGithubRelease = core.getInput('create-github-release') === 'true';
-    // TODO: This will be used when PR filtering is implemented
-    // const excludeLabelsInput = core.getInput('exclude-labels') || 'skip-changelog,no-changelog';
-    // const excludeLabels = excludeLabelsInput.split(',').map((s) => s.trim());
-    const dryRun = core.getInput('dry-run') === 'true';
+    const versionFileStr = core.getInput('version-file') || 'true';
+    const versionFile = versionFileStr === 'true';
+    const createGithubReleaseStr = core.getInput('create-github-release') || 'true';
+    const createGithubRelease = createGithubReleaseStr === 'true';
+    const dryRunStr = core.getInput('dry-run') || 'false';
+    const dryRun = dryRunStr === 'true';
 
-    core.info('Starting release notes generation...');
-    core.info(`Template: ${template}`);
-    core.info(`Changelog file: ${changelogFile}`);
-    core.info(`Dry run: ${dryRun}`);
+    logger.info(`Template: ${template}`);
+    logger.info(`Changelog file: ${changelogFile}`);
+    logger.info(`Dry run: ${dryRun}`);
 
     // Get GitHub context
     const context = github.context;
     const { owner, repo } = context.repo;
 
-    core.info(`Repository: ${owner}/${repo}`);
-    core.info(`Ref: ${context.ref}`);
+    logger.info(`Repository: ${owner}/${repo}`);
+    logger.info(`Ref: ${context.ref}`);
 
     // Extract version from tag
     const version = extractVersion(context.ref);
-    core.info(`Detected version: ${version}`);
+    logger.info(`Detected version: ${version}`);
 
-    // Validate version format
-    if (!isValidSemver(version)) {
-      throw new Error(
-        `Invalid tag format: ${version}. Expected Semantic Versioning (e.g., v1.2.3)`
-      );
+    // Validate all inputs
+    const validation = await validateInputs({
+      version,
+      template,
+      changelogFile,
+      token,
+      versionFile: versionFileStr,
+      createGithubRelease: createGithubReleaseStr,
+      dryRun: dryRunStr,
+      excludeLabels: '',
+    });
+
+    if (!validation.valid) {
+      throw new Error('Input validation failed. Please check the errors above.');
     }
 
-    // Initialize collector
+    // Initialize collector with retry
+    logger.section('Collecting Information');
     const collector = new Collector(token, owner, repo);
 
-    // Get tags
-    core.info('Fetching tags...');
-    const tags = await collector.getTags();
+    // Get tags with retry
+    logger.info('Fetching tags...');
+    const tags = await withGitHubRetry(() => collector.getTags());
 
     // Find previous tag
     const currentTagIndex = tags.findIndex((t) => t.name === version);
@@ -66,34 +81,39 @@ async function run(): Promise<void> {
         : null;
 
     if (previousTag) {
-      core.info(`Previous version: ${previousTag.name}`);
+      logger.info(`Previous version: ${previousTag.name}`);
     } else {
-      core.info('No previous tag found (first release)');
+      logger.info('No previous tag found (first release)');
     }
 
-    // Collect commits
-    core.info(`Fetching commits from ${previousTag?.name || 'start'} to ${version}...`);
-    let commits = await collector.getCommitsBetweenTags(previousTag?.sha || null, version);
+    // Collect commits with retry
+    logger.info(`Fetching commits from ${previousTag?.name || 'start'} to ${version}...`);
+    let commits = await withGitHubRetry(() =>
+      collector.getCommitsBetweenTags(previousTag?.sha || null, version)
+    );
 
     // Apply filters to commits
-    core.info('Applying filters...');
+    logger.section('Filtering Changes');
     commits = applyCommitFilters(commits, {
       excludeChore: true,
       excludeMerge: false,
     });
 
     // Parse commits
-    core.info('Parsing commits with Conventional Commits format...');
+    logger.section('Parsing Commits');
+    logger.info('Parsing commits with Conventional Commits format...');
     const parsedCommits = parseCommits(commits);
 
     // Categorize changes
+    logger.section('Categorizing Changes');
     const categories = categorizeCommits(parsedCommits);
     logCategoryStats(categories);
 
     // Extract contributors with bot filtering
+    logger.section('Extracting Contributors');
     const commitContributors = extractContributorsFromCommits(parsedCommits);
     const contributors = mergeContributors(commitContributors);
-    core.info(`Contributors: ${contributors.length}`);
+    logger.info(`Contributors: ${contributors.length}`);
 
     // Generate compare URL
     const compareUrl = previousTag
@@ -111,29 +131,33 @@ async function run(): Promise<void> {
       repo,
     };
 
-    // Generate release notes
-    core.info('Generating release notes...');
-    const releaseNotes = generateReleaseNotes(releaseData);
+    // Generate release notes using template
+    logger.section('Generating Release Notes');
+    logger.info(`Using template: ${template}`);
+    const releaseNotes = generateReleaseNotes(releaseData, template);
 
     // Write to CHANGELOG.md
-    core.info(`Writing to ${changelogFile}...`);
+    logger.section('Writing Files');
+    logger.info(`Writing to ${changelogFile}...`);
     await writeChangelog(changelogFile, releaseNotes, dryRun);
 
     // Write version-specific file
     if (versionFile) {
-      core.info(`Writing version file...`);
+      logger.info(`Writing version file...`);
       await writeVersionFile(version, releaseNotes, dryRun);
     }
 
-    // Create GitHub Release
+    // Create GitHub Release with retry
     let releaseUrl = '';
     if (createGithubRelease) {
       if (dryRun) {
-        core.info(`[DRY RUN] Would create GitHub Release: ${version}`);
+        logger.info(`[DRY RUN] Would create GitHub Release: ${version}`);
       } else {
-        core.info('Creating GitHub Release...');
+        logger.section('Creating GitHub Release');
         const releasesManager = new ReleasesManager(token, owner, repo);
-        releaseUrl = await releasesManager.createRelease(version, releaseNotes);
+        releaseUrl = await withGitHubRetry(() =>
+          releasesManager.createRelease(version, releaseNotes)
+        );
       }
     }
 
@@ -142,10 +166,13 @@ async function run(): Promise<void> {
     core.setOutput('version', version);
     core.setOutput('changelog-url', releaseUrl);
 
-    core.info('✓ Release notes generated successfully!');
+    const duration = Date.now() - startTime;
+    logger.section('Summary');
+    logger.success(`Release notes generated successfully in ${duration}ms!`);
   } catch (error) {
     if (error instanceof Error) {
       core.setFailed(`Action failed: ${error.message}`);
+      logger.error(`Stack trace: ${error.stack}`);
     } else {
       core.setFailed('Action failed with unknown error');
     }

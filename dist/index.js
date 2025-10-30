@@ -31108,6 +31108,198 @@ function applyPRFilters(prs, excludeLabels) {
 
 /***/ }),
 
+/***/ 6999:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * Enhanced logging utilities
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Timer = exports.LogLevel = void 0;
+exports.setLogLevel = setLogLevel;
+exports.isDebugEnabled = isDebugEnabled;
+exports.debug = debug;
+exports.info = info;
+exports.warning = warning;
+exports.error = error;
+exports.success = success;
+exports.startGroup = startGroup;
+exports.endGroup = endGroup;
+exports.progress = progress;
+exports.section = section;
+exports.debugObject = debugObject;
+exports.validation = validation;
+const core = __importStar(__nccwpck_require__(7484));
+/**
+ * Log levels
+ */
+var LogLevel;
+(function (LogLevel) {
+    LogLevel[LogLevel["DEBUG"] = 0] = "DEBUG";
+    LogLevel[LogLevel["INFO"] = 1] = "INFO";
+    LogLevel[LogLevel["WARNING"] = 2] = "WARNING";
+    LogLevel[LogLevel["ERROR"] = 3] = "ERROR";
+})(LogLevel || (exports.LogLevel = LogLevel = {}));
+/**
+ * Current log level (can be controlled via environment)
+ */
+let currentLogLevel = LogLevel.INFO;
+/**
+ * Set log level
+ */
+function setLogLevel(level) {
+    currentLogLevel = level;
+}
+/**
+ * Check if debug mode is enabled
+ */
+function isDebugEnabled() {
+    return process.env.ACTIONS_STEP_DEBUG === 'true' || currentLogLevel <= LogLevel.DEBUG;
+}
+/**
+ * Debug log (only shown when debug mode is enabled)
+ */
+function debug(message, ...args) {
+    if (isDebugEnabled()) {
+        const formatted = args.length > 0 ? `${message} ${JSON.stringify(args)}` : message;
+        core.debug(formatted);
+    }
+}
+/**
+ * Info log
+ */
+function info(message) {
+    if (currentLogLevel <= LogLevel.INFO) {
+        core.info(message);
+    }
+}
+/**
+ * Warning log
+ */
+function warning(message) {
+    if (currentLogLevel <= LogLevel.WARNING) {
+        core.warning(message);
+    }
+}
+/**
+ * Error log
+ */
+function error(message) {
+    core.error(message);
+}
+/**
+ * Success log with checkmark
+ */
+function success(message) {
+    info(`✓ ${message}`);
+}
+/**
+ * Start a log group
+ */
+function startGroup(name) {
+    core.startGroup(name);
+}
+/**
+ * End a log group
+ */
+function endGroup() {
+    core.endGroup();
+}
+/**
+ * Log with progress indicator
+ */
+function progress(current, total, message) {
+    info(`[${current}/${total}] ${message}`);
+}
+/**
+ * Log a section header
+ */
+function section(title) {
+    info('');
+    info(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    info(`  ${title}`);
+    info(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    info('');
+}
+/**
+ * Log operation timing
+ */
+class Timer {
+    startTime;
+    label;
+    constructor(label) {
+        this.label = label;
+        this.startTime = Date.now();
+        debug(`Timer started: ${label}`);
+    }
+    end() {
+        const duration = Date.now() - this.startTime;
+        debug(`Timer ended: ${this.label} (${duration}ms)`);
+    }
+    endWithLog() {
+        const duration = Date.now() - this.startTime;
+        info(`${this.label} completed in ${duration}ms`);
+    }
+}
+exports.Timer = Timer;
+/**
+ * Log an object in debug mode
+ */
+function debugObject(label, obj) {
+    if (isDebugEnabled()) {
+        debug(`${label}:`, obj);
+    }
+}
+/**
+ * Log validation result
+ */
+function validation(passed, message) {
+    if (passed) {
+        info(`✓ ${message}`);
+    }
+    else {
+        error(`✗ ${message}`);
+    }
+}
+
+
+/***/ }),
+
 /***/ 1730:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -31157,69 +31349,87 @@ const utils_1 = __nccwpck_require__(1798);
 const filter_1 = __nccwpck_require__(9037);
 const contributors_1 = __nccwpck_require__(305);
 const releases_1 = __nccwpck_require__(1425);
+const validator_1 = __nccwpck_require__(6985);
+const retry_1 = __nccwpck_require__(9809);
+const logger = __importStar(__nccwpck_require__(6999));
 async function run() {
+    const startTime = Date.now();
     try {
+        logger.section('Auto Release Notes Generator');
         // Get inputs
         const token = core.getInput('github-token', { required: true });
         const template = core.getInput('template') || 'standard';
         const changelogFile = core.getInput('changelog-file') || 'CHANGELOG.md';
-        const versionFile = core.getInput('version-file') === 'true';
-        const createGithubRelease = core.getInput('create-github-release') === 'true';
-        // TODO: This will be used when PR filtering is implemented
-        // const excludeLabelsInput = core.getInput('exclude-labels') || 'skip-changelog,no-changelog';
-        // const excludeLabels = excludeLabelsInput.split(',').map((s) => s.trim());
-        const dryRun = core.getInput('dry-run') === 'true';
-        core.info('Starting release notes generation...');
-        core.info(`Template: ${template}`);
-        core.info(`Changelog file: ${changelogFile}`);
-        core.info(`Dry run: ${dryRun}`);
+        const versionFileStr = core.getInput('version-file') || 'true';
+        const versionFile = versionFileStr === 'true';
+        const createGithubReleaseStr = core.getInput('create-github-release') || 'true';
+        const createGithubRelease = createGithubReleaseStr === 'true';
+        const dryRunStr = core.getInput('dry-run') || 'false';
+        const dryRun = dryRunStr === 'true';
+        logger.info(`Template: ${template}`);
+        logger.info(`Changelog file: ${changelogFile}`);
+        logger.info(`Dry run: ${dryRun}`);
         // Get GitHub context
         const context = github.context;
         const { owner, repo } = context.repo;
-        core.info(`Repository: ${owner}/${repo}`);
-        core.info(`Ref: ${context.ref}`);
+        logger.info(`Repository: ${owner}/${repo}`);
+        logger.info(`Ref: ${context.ref}`);
         // Extract version from tag
         const version = (0, utils_1.extractVersion)(context.ref);
-        core.info(`Detected version: ${version}`);
-        // Validate version format
-        if (!(0, utils_1.isValidSemver)(version)) {
-            throw new Error(`Invalid tag format: ${version}. Expected Semantic Versioning (e.g., v1.2.3)`);
+        logger.info(`Detected version: ${version}`);
+        // Validate all inputs
+        const validation = await (0, validator_1.validateInputs)({
+            version,
+            template,
+            changelogFile,
+            token,
+            versionFile: versionFileStr,
+            createGithubRelease: createGithubReleaseStr,
+            dryRun: dryRunStr,
+            excludeLabels: '',
+        });
+        if (!validation.valid) {
+            throw new Error('Input validation failed. Please check the errors above.');
         }
-        // Initialize collector
+        // Initialize collector with retry
+        logger.section('Collecting Information');
         const collector = new collector_1.Collector(token, owner, repo);
-        // Get tags
-        core.info('Fetching tags...');
-        const tags = await collector.getTags();
+        // Get tags with retry
+        logger.info('Fetching tags...');
+        const tags = await (0, retry_1.withGitHubRetry)(() => collector.getTags());
         // Find previous tag
         const currentTagIndex = tags.findIndex((t) => t.name === version);
         const previousTag = currentTagIndex >= 0 && currentTagIndex < tags.length - 1
             ? tags[currentTagIndex + 1]
             : null;
         if (previousTag) {
-            core.info(`Previous version: ${previousTag.name}`);
+            logger.info(`Previous version: ${previousTag.name}`);
         }
         else {
-            core.info('No previous tag found (first release)');
+            logger.info('No previous tag found (first release)');
         }
-        // Collect commits
-        core.info(`Fetching commits from ${previousTag?.name || 'start'} to ${version}...`);
-        let commits = await collector.getCommitsBetweenTags(previousTag?.sha || null, version);
+        // Collect commits with retry
+        logger.info(`Fetching commits from ${previousTag?.name || 'start'} to ${version}...`);
+        let commits = await (0, retry_1.withGitHubRetry)(() => collector.getCommitsBetweenTags(previousTag?.sha || null, version));
         // Apply filters to commits
-        core.info('Applying filters...');
+        logger.section('Filtering Changes');
         commits = (0, filter_1.applyCommitFilters)(commits, {
             excludeChore: true,
             excludeMerge: false,
         });
         // Parse commits
-        core.info('Parsing commits with Conventional Commits format...');
+        logger.section('Parsing Commits');
+        logger.info('Parsing commits with Conventional Commits format...');
         const parsedCommits = (0, parser_1.parseCommits)(commits);
         // Categorize changes
+        logger.section('Categorizing Changes');
         const categories = (0, categorizer_1.categorizeCommits)(parsedCommits);
         (0, categorizer_1.logCategoryStats)(categories);
         // Extract contributors with bot filtering
+        logger.section('Extracting Contributors');
         const commitContributors = (0, contributors_1.extractContributorsFromCommits)(parsedCommits);
         const contributors = (0, contributors_1.mergeContributors)(commitContributors);
-        core.info(`Contributors: ${contributors.length}`);
+        logger.info(`Contributors: ${contributors.length}`);
         // Generate compare URL
         const compareUrl = previousTag
             ? (0, utils_1.generateCompareUrl)(owner, repo, previousTag.name, version)
@@ -31234,38 +31444,43 @@ async function run() {
             owner,
             repo,
         };
-        // Generate release notes
-        core.info('Generating release notes...');
-        const releaseNotes = (0, writer_1.generateReleaseNotes)(releaseData);
+        // Generate release notes using template
+        logger.section('Generating Release Notes');
+        logger.info(`Using template: ${template}`);
+        const releaseNotes = (0, writer_1.generateReleaseNotes)(releaseData, template);
         // Write to CHANGELOG.md
-        core.info(`Writing to ${changelogFile}...`);
+        logger.section('Writing Files');
+        logger.info(`Writing to ${changelogFile}...`);
         await (0, writer_1.writeChangelog)(changelogFile, releaseNotes, dryRun);
         // Write version-specific file
         if (versionFile) {
-            core.info(`Writing version file...`);
+            logger.info(`Writing version file...`);
             await (0, writer_1.writeVersionFile)(version, releaseNotes, dryRun);
         }
-        // Create GitHub Release
+        // Create GitHub Release with retry
         let releaseUrl = '';
         if (createGithubRelease) {
             if (dryRun) {
-                core.info(`[DRY RUN] Would create GitHub Release: ${version}`);
+                logger.info(`[DRY RUN] Would create GitHub Release: ${version}`);
             }
             else {
-                core.info('Creating GitHub Release...');
+                logger.section('Creating GitHub Release');
                 const releasesManager = new releases_1.ReleasesManager(token, owner, repo);
-                releaseUrl = await releasesManager.createRelease(version, releaseNotes);
+                releaseUrl = await (0, retry_1.withGitHubRetry)(() => releasesManager.createRelease(version, releaseNotes));
             }
         }
         // Set outputs
         core.setOutput('release-notes', releaseNotes);
         core.setOutput('version', version);
         core.setOutput('changelog-url', releaseUrl);
-        core.info('✓ Release notes generated successfully!');
+        const duration = Date.now() - startTime;
+        logger.section('Summary');
+        logger.success(`Release notes generated successfully in ${duration}ms!`);
     }
     catch (error) {
         if (error instanceof Error) {
             core.setFailed(`Action failed: ${error.message}`);
+            logger.error(`Stack trace: ${error.stack}`);
         }
         else {
             core.setFailed('Action failed with unknown error');
@@ -31496,6 +31711,463 @@ exports.ReleasesManager = ReleasesManager;
 
 /***/ }),
 
+/***/ 9809:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * Retry logic with exponential backoff
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.withRetry = withRetry;
+exports.isRateLimitError = isRateLimitError;
+exports.isNetworkError = isNetworkError;
+exports.isRetryableError = isRetryableError;
+exports.withGitHubRetry = withGitHubRetry;
+const core = __importStar(__nccwpck_require__(7484));
+const utils_1 = __nccwpck_require__(1798);
+/**
+ * Default retry options
+ */
+const DEFAULT_OPTIONS = {
+    maxRetries: 3,
+    initialDelay: 1000,
+    maxDelay: 10000,
+    backoffMultiplier: 2,
+    isRetryable: () => true,
+};
+/**
+ * Execute a function with retry logic
+ */
+async function withRetry(fn, options = {}) {
+    const opts = { ...DEFAULT_OPTIONS, ...options };
+    let lastError = new Error('Unknown error');
+    for (let attempt = 0; attempt < opts.maxRetries; attempt++) {
+        try {
+            return await fn();
+        }
+        catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            // Check if error is retryable
+            if (!opts.isRetryable(lastError)) {
+                core.debug(`Error is not retryable: ${lastError.message}`);
+                throw lastError;
+            }
+            // Don't retry on last attempt
+            if (attempt === opts.maxRetries - 1) {
+                break;
+            }
+            // Calculate delay with exponential backoff
+            const delay = Math.min(opts.initialDelay * Math.pow(opts.backoffMultiplier, attempt), opts.maxDelay);
+            core.warning(`Attempt ${attempt + 1}/${opts.maxRetries} failed: ${lastError.message}. Retrying in ${delay}ms...`);
+            await (0, utils_1.sleep)(delay);
+        }
+    }
+    throw new Error(`Failed after ${opts.maxRetries} attempts. Last error: ${lastError.message}`);
+}
+/**
+ * Check if error is a GitHub API rate limit error
+ */
+function isRateLimitError(error) {
+    return error.message.includes('rate limit') || error.message.includes('403');
+}
+/**
+ * Check if error is a network/timeout error
+ */
+function isNetworkError(error) {
+    const message = error.message.toLowerCase();
+    return (message.includes('timeout') ||
+        message.includes('econnreset') ||
+        message.includes('econnrefused') ||
+        message.includes('network'));
+}
+/**
+ * Check if error is retryable (not auth/permission errors)
+ */
+function isRetryableError(error) {
+    const message = error.message.toLowerCase();
+    // Don't retry authentication or permission errors
+    if (message.includes('401') || message.includes('unauthorized')) {
+        return false;
+    }
+    if (message.includes('403') && !isRateLimitError(error)) {
+        return false;
+    }
+    if (message.includes('404') || message.includes('not found')) {
+        return false;
+    }
+    // Retry on rate limits and network errors
+    return isRateLimitError(error) || isNetworkError(error) || message.includes('500');
+}
+/**
+ * Retry with custom options for GitHub API calls
+ */
+async function withGitHubRetry(fn) {
+    return withRetry(fn, {
+        maxRetries: 3,
+        initialDelay: 1000,
+        maxDelay: 10000,
+        backoffMultiplier: 2,
+        isRetryable: isRetryableError,
+    });
+}
+
+
+/***/ }),
+
+/***/ 6058:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+/**
+ * Base template interface
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CATEGORY_DISPLAY = void 0;
+/**
+ * Common category display configuration
+ */
+exports.CATEGORY_DISPLAY = {
+    breaking: { emoji: '🚨', title: 'Breaking Changes' },
+    features: { emoji: '✨', title: 'Features' },
+    bugFixes: { emoji: '🐛', title: 'Bug Fixes' },
+    documentation: { emoji: '📚', title: 'Documentation' },
+    performance: { emoji: '⚡', title: 'Performance' },
+    refactoring: { emoji: '🔧', title: 'Refactoring' },
+    style: { emoji: '🎨', title: 'Style' },
+    tests: { emoji: '✅', title: 'Tests' },
+    build: { emoji: '🔨', title: 'Build System' },
+    ci: { emoji: '🤖', title: 'CI/CD' },
+    other: { emoji: '📦', title: 'Other Changes' },
+};
+
+
+/***/ }),
+
+/***/ 1623:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+/**
+ * Detailed template with extra information
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DetailedTemplate = void 0;
+const base_1 = __nccwpck_require__(6058);
+class DetailedTemplate {
+    formatChangeItem(item, owner, repo) {
+        let line = `- ${item.description}`;
+        // Add PR/commit reference
+        if (item.prNumber) {
+            line += ` ([#${item.prNumber}](https://github.com/${owner}/${repo}/pull/${item.prNumber}))`;
+        }
+        else if (item.commitHash) {
+            line += ` ([\`${item.commitHash}\`](https://github.com/${owner}/${repo}/commit/${item.commitHash}))`;
+        }
+        if (item.author) {
+            line += ` @${item.author}`;
+        }
+        // Add related issues
+        if (item.issues && item.issues.length > 0) {
+            const issueLinks = item.issues
+                .map((num) => `[#${num}](https://github.com/${owner}/${repo}/issues/${num})`)
+                .join(', ');
+            line += `\n  - Closes: ${issueLinks}`;
+        }
+        return line;
+    }
+    formatCategory(categoryKey, items, owner, repo) {
+        if (items.length === 0)
+            return '';
+        const display = base_1.CATEGORY_DISPLAY[categoryKey] || {
+            emoji: '📦',
+            title: 'Other Changes',
+        };
+        let section = `\n### ${display.emoji} ${display.title} (${items.length})\n\n`;
+        for (const item of items) {
+            section += this.formatChangeItem(item, owner, repo) + '\n';
+        }
+        return section;
+    }
+    getStatistics(changes) {
+        const total = changes.breaking.length +
+            changes.features.length +
+            changes.bugFixes.length +
+            changes.documentation.length +
+            changes.performance.length +
+            changes.refactoring.length +
+            changes.style.length +
+            changes.tests.length +
+            changes.build.length +
+            changes.ci.length +
+            changes.other.length;
+        return `\n### 📊 Statistics\n\n- ${total} changes\n- ${changes.features.length} features\n- ${changes.bugFixes.length} bug fixes\n- ${changes.breaking.length} breaking changes\n`;
+    }
+    getContributorStats(data) {
+        if (data.contributors.length === 0)
+            return '';
+        let section = `\n### 👥 Contributors\n\nThis release was made possible by ${data.contributors.length} contributor${data.contributors.length > 1 ? 's' : ''}:\n\n`;
+        section += data.contributors.map((c) => `- @${c}`).join('\n') + '\n';
+        return section;
+    }
+    generate(data) {
+        let content = `## [${data.version}] - ${data.date}\n`;
+        // Add statistics
+        content += this.getStatistics(data.changes);
+        // Add categories in order
+        const categories = [
+            'breaking',
+            'features',
+            'bugFixes',
+            'documentation',
+            'performance',
+            'refactoring',
+            'style',
+            'tests',
+            'build',
+            'ci',
+            'other',
+        ];
+        for (const category of categories) {
+            const items = data.changes[category];
+            content += this.formatCategory(category, items, data.owner, data.repo);
+        }
+        // Add detailed contributor section
+        content += this.getContributorStats(data);
+        // Add compare URL
+        if (data.compareUrl) {
+            content += `\n**Full Changelog**: ${data.compareUrl}\n`;
+        }
+        return content;
+    }
+}
+exports.DetailedTemplate = DetailedTemplate;
+
+
+/***/ }),
+
+/***/ 6587:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * Template factory
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getTemplate = getTemplate;
+exports.getAvailableTemplates = getAvailableTemplates;
+const standard_1 = __nccwpck_require__(1766);
+const detailed_1 = __nccwpck_require__(1623);
+const minimal_1 = __nccwpck_require__(9112);
+__exportStar(__nccwpck_require__(1766), exports);
+__exportStar(__nccwpck_require__(1623), exports);
+__exportStar(__nccwpck_require__(9112), exports);
+/**
+ * Get template by name
+ */
+function getTemplate(name) {
+    switch (name.toLowerCase()) {
+        case 'standard':
+            return new standard_1.StandardTemplate();
+        case 'detailed':
+            return new detailed_1.DetailedTemplate();
+        case 'minimal':
+            return new minimal_1.MinimalTemplate();
+        default:
+            throw new Error(`Unknown template: ${name}. Available templates: standard, detailed, minimal`);
+    }
+}
+/**
+ * Get list of available template names
+ */
+function getAvailableTemplates() {
+    return ['standard', 'detailed', 'minimal'];
+}
+
+
+/***/ }),
+
+/***/ 9112:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+/**
+ * Minimal template with simple format
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.MinimalTemplate = void 0;
+class MinimalTemplate {
+    formatChangeItem(item, _owner, _repo) {
+        let line = `- ${item.description}`;
+        if (item.prNumber) {
+            line += ` (#${item.prNumber})`;
+        }
+        return line;
+    }
+    formatCategory(_categoryKey, items, owner, repo) {
+        if (items.length === 0)
+            return '';
+        let section = '';
+        for (const item of items) {
+            section += this.formatChangeItem(item, owner, repo) + '\n';
+        }
+        return section;
+    }
+    generate(data) {
+        let content = `## ${data.version} - ${data.date}\n\n`;
+        // Flatten all changes without categorization
+        const allChanges = [
+            ...data.changes.breaking,
+            ...data.changes.features,
+            ...data.changes.bugFixes,
+            ...data.changes.documentation,
+            ...data.changes.performance,
+            ...data.changes.refactoring,
+            ...data.changes.style,
+            ...data.changes.tests,
+            ...data.changes.build,
+            ...data.changes.ci,
+            ...data.changes.other,
+        ];
+        for (const item of allChanges) {
+            content += this.formatChangeItem(item, data.owner, data.repo) + '\n';
+        }
+        // Add simple compare URL if available
+        if (data.compareUrl) {
+            content += `\nChanges: ${data.compareUrl}\n`;
+        }
+        return content;
+    }
+}
+exports.MinimalTemplate = MinimalTemplate;
+
+
+/***/ }),
+
+/***/ 1766:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+/**
+ * Standard template
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.StandardTemplate = void 0;
+const base_1 = __nccwpck_require__(6058);
+class StandardTemplate {
+    formatChangeItem(item, owner, repo) {
+        let line = `- ${item.description}`;
+        if (item.prNumber) {
+            line += ` ([#${item.prNumber}](https://github.com/${owner}/${repo}/pull/${item.prNumber}))`;
+        }
+        if (item.author) {
+            line += ` @${item.author}`;
+        }
+        return line;
+    }
+    formatCategory(categoryKey, items, owner, repo) {
+        if (items.length === 0)
+            return '';
+        const display = base_1.CATEGORY_DISPLAY[categoryKey] || {
+            emoji: '📦',
+            title: 'Other Changes',
+        };
+        let section = `\n### ${display.emoji} ${display.title}\n\n`;
+        for (const item of items) {
+            section += this.formatChangeItem(item, owner, repo) + '\n';
+        }
+        return section;
+    }
+    generate(data) {
+        let content = `## [${data.version}] - ${data.date}\n`;
+        // Add categories in order
+        const categories = [
+            'breaking',
+            'features',
+            'bugFixes',
+            'documentation',
+            'performance',
+            'refactoring',
+            'style',
+            'tests',
+            'build',
+            'ci',
+            'other',
+        ];
+        for (const category of categories) {
+            const items = data.changes[category];
+            content += this.formatCategory(category, items, data.owner, data.repo);
+        }
+        // Add contributors
+        if (data.contributors.length > 0) {
+            content += `\n### Contributors\n\n`;
+            content += data.contributors.map((c) => `@${c}`).join(', ') + '\n';
+        }
+        // Add compare URL
+        if (data.compareUrl) {
+            content += `\n**Full Changelog**: ${data.compareUrl}\n`;
+        }
+        return content;
+    }
+}
+exports.StandardTemplate = StandardTemplate;
+
+
+/***/ }),
+
 /***/ 1798:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -31591,6 +32263,209 @@ function sleep(ms) {
 
 /***/ }),
 
+/***/ 6985:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * Input validation
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.validateTagFormat = validateTagFormat;
+exports.validateTemplate = validateTemplate;
+exports.validateFilePath = validateFilePath;
+exports.validateGitHubToken = validateGitHubToken;
+exports.validateBoolean = validateBoolean;
+exports.validateExcludeLabels = validateExcludeLabels;
+exports.validateInputs = validateInputs;
+const fs = __importStar(__nccwpck_require__(1943));
+const core = __importStar(__nccwpck_require__(7484));
+const utils_1 = __nccwpck_require__(1798);
+const templates_1 = __nccwpck_require__(6587);
+const logger = __importStar(__nccwpck_require__(6999));
+/**
+ * Create empty validation result
+ */
+function createValidationResult() {
+    return {
+        valid: true,
+        errors: [],
+        warnings: [],
+    };
+}
+/**
+ * Validate tag format
+ */
+function validateTagFormat(tag) {
+    const result = createValidationResult();
+    if (!(0, utils_1.isValidSemver)(tag)) {
+        result.valid = false;
+        result.errors.push(`Invalid tag format: '${tag}'. Expected Semantic Versioning (e.g., v1.2.3, v2.0.0-beta.1)`);
+    }
+    else {
+        logger.validation(true, `Valid Semantic Versioning tag: ${tag}`);
+    }
+    return result;
+}
+/**
+ * Validate template name
+ */
+function validateTemplate(template) {
+    const result = createValidationResult();
+    const available = (0, templates_1.getAvailableTemplates)();
+    if (!available.includes(template.toLowerCase())) {
+        result.valid = false;
+        result.errors.push(`Invalid template: '${template}'. Available templates: ${available.join(', ')}`);
+    }
+    else {
+        logger.validation(true, `Template '${template}' is valid`);
+    }
+    return result;
+}
+/**
+ * Validate file path
+ */
+async function validateFilePath(filePath) {
+    const result = createValidationResult();
+    try {
+        // Check if parent directory exists
+        const dir = filePath.substring(0, filePath.lastIndexOf('/'));
+        if (dir) {
+            try {
+                await fs.access(dir);
+                logger.validation(true, `Directory '${dir}' exists`);
+            }
+            catch {
+                result.warnings.push(`Directory '${dir}' does not exist, will be created`);
+            }
+        }
+    }
+    catch (error) {
+        result.warnings.push(`Could not validate file path: ${filePath}`);
+    }
+    return result;
+}
+/**
+ * Validate GitHub token permissions (basic check)
+ */
+function validateGitHubToken(token) {
+    const result = createValidationResult();
+    if (!token || token.trim() === '') {
+        result.valid = false;
+        result.errors.push('GitHub token is required');
+        return result;
+    }
+    if (token.length < 20) {
+        result.valid = false;
+        result.errors.push('GitHub token appears to be invalid (too short)');
+        return result;
+    }
+    logger.validation(true, 'GitHub token is provided');
+    return result;
+}
+/**
+ * Validate boolean input
+ */
+function validateBoolean(value, name) {
+    const result = createValidationResult();
+    if (value !== 'true' && value !== 'false' && value !== '') {
+        result.valid = false;
+        result.errors.push(`Invalid boolean value for '${name}': '${value}'. Expected 'true' or 'false'`);
+    }
+    return result;
+}
+/**
+ * Validate exclude labels format
+ */
+function validateExcludeLabels(labels) {
+    const result = createValidationResult();
+    if (labels && labels.trim() !== '') {
+        const labelList = labels.split(',').map((s) => s.trim());
+        if (labelList.length > 0) {
+            logger.validation(true, `Exclude labels: ${labelList.join(', ')}`);
+        }
+    }
+    return result;
+}
+/**
+ * Run all validations
+ */
+async function validateInputs(inputs) {
+    logger.section('Input Validation');
+    const results = [];
+    // Validate tag format
+    results.push(validateTagFormat(inputs.version));
+    // Validate template
+    results.push(validateTemplate(inputs.template));
+    // Validate file path
+    results.push(await validateFilePath(inputs.changelogFile));
+    // Validate token
+    results.push(validateGitHubToken(inputs.token));
+    // Validate boolean inputs
+    results.push(validateBoolean(inputs.versionFile, 'version-file'));
+    results.push(validateBoolean(inputs.createGithubRelease, 'create-github-release'));
+    results.push(validateBoolean(inputs.dryRun, 'dry-run'));
+    // Validate exclude labels
+    results.push(validateExcludeLabels(inputs.excludeLabels));
+    // Merge all results
+    const finalResult = {
+        valid: results.every((r) => r.valid),
+        errors: results.flatMap((r) => r.errors),
+        warnings: results.flatMap((r) => r.warnings),
+    };
+    // Log errors and warnings
+    for (const error of finalResult.errors) {
+        core.error(error);
+    }
+    for (const warning of finalResult.warnings) {
+        core.warning(warning);
+    }
+    if (finalResult.valid) {
+        logger.success('All input validations passed');
+    }
+    else {
+        logger.error('Input validation failed');
+    }
+    return finalResult;
+}
+
+
+/***/ }),
+
 /***/ 164:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -31639,84 +32514,13 @@ exports.writeVersionFile = writeVersionFile;
 const fs = __importStar(__nccwpck_require__(1943));
 const path = __importStar(__nccwpck_require__(6928));
 const core = __importStar(__nccwpck_require__(7484));
+const templates_1 = __nccwpck_require__(6587);
 /**
- * Category display names and emojis
+ * Generate release notes content using template
  */
-const CATEGORY_DISPLAY = {
-    breaking: { emoji: '🚨', title: 'Breaking Changes' },
-    features: { emoji: '✨', title: 'Features' },
-    bugFixes: { emoji: '🐛', title: 'Bug Fixes' },
-    documentation: { emoji: '📚', title: 'Documentation' },
-    performance: { emoji: '⚡', title: 'Performance' },
-    refactoring: { emoji: '🔧', title: 'Refactoring' },
-    style: { emoji: '🎨', title: 'Style' },
-    tests: { emoji: '✅', title: 'Tests' },
-    build: { emoji: '🔨', title: 'Build System' },
-    ci: { emoji: '🤖', title: 'CI/CD' },
-    other: { emoji: '📦', title: 'Other Changes' },
-};
-/**
- * Format a change item
- */
-function formatChangeItem(item, owner, repo) {
-    let line = `- ${item.description}`;
-    if (item.prNumber) {
-        line += ` ([#${item.prNumber}](https://github.com/${owner}/${repo}/pull/${item.prNumber}))`;
-    }
-    if (item.author) {
-        line += ` @${item.author}`;
-    }
-    return line;
-}
-/**
- * Format a category section
- */
-function formatCategory(categoryKey, items, owner, repo) {
-    if (items.length === 0)
-        return '';
-    const display = CATEGORY_DISPLAY[categoryKey] || {
-        emoji: '📦',
-        title: 'Other Changes',
-    };
-    let section = `\n### ${display.emoji} ${display.title}\n\n`;
-    for (const item of items) {
-        section += formatChangeItem(item, owner, repo) + '\n';
-    }
-    return section;
-}
-/**
- * Generate release notes content
- */
-function generateReleaseNotes(data) {
-    let content = `## [${data.version}] - ${data.date}\n`;
-    // Add categories in order
-    const categories = [
-        'breaking',
-        'features',
-        'bugFixes',
-        'documentation',
-        'performance',
-        'refactoring',
-        'style',
-        'tests',
-        'build',
-        'ci',
-        'other',
-    ];
-    for (const category of categories) {
-        const items = data.changes[category];
-        content += formatCategory(category, items, data.owner, data.repo);
-    }
-    // Add contributors
-    if (data.contributors.length > 0) {
-        content += `\n### Contributors\n\n`;
-        content += data.contributors.map((c) => `@${c}`).join(', ') + '\n';
-    }
-    // Add compare URL
-    if (data.compareUrl) {
-        content += `\n**Full Changelog**: ${data.compareUrl}\n`;
-    }
-    return content;
+function generateReleaseNotes(data, templateName = 'standard') {
+    const template = (0, templates_1.getTemplate)(templateName);
+    return template.generate(data);
 }
 /**
  * Write content to CHANGELOG.md

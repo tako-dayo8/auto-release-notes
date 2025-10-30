@@ -43,69 +43,87 @@ const utils_1 = require("./utils");
 const filter_1 = require("./filter");
 const contributors_1 = require("./contributors");
 const releases_1 = require("./releases");
+const validator_1 = require("./validator");
+const retry_1 = require("./retry");
+const logger = __importStar(require("./logger"));
 async function run() {
+    const startTime = Date.now();
     try {
+        logger.section('Auto Release Notes Generator');
         // Get inputs
         const token = core.getInput('github-token', { required: true });
         const template = core.getInput('template') || 'standard';
         const changelogFile = core.getInput('changelog-file') || 'CHANGELOG.md';
-        const versionFile = core.getInput('version-file') === 'true';
-        const createGithubRelease = core.getInput('create-github-release') === 'true';
-        // TODO: This will be used when PR filtering is implemented
-        // const excludeLabelsInput = core.getInput('exclude-labels') || 'skip-changelog,no-changelog';
-        // const excludeLabels = excludeLabelsInput.split(',').map((s) => s.trim());
-        const dryRun = core.getInput('dry-run') === 'true';
-        core.info('Starting release notes generation...');
-        core.info(`Template: ${template}`);
-        core.info(`Changelog file: ${changelogFile}`);
-        core.info(`Dry run: ${dryRun}`);
+        const versionFileStr = core.getInput('version-file') || 'true';
+        const versionFile = versionFileStr === 'true';
+        const createGithubReleaseStr = core.getInput('create-github-release') || 'true';
+        const createGithubRelease = createGithubReleaseStr === 'true';
+        const dryRunStr = core.getInput('dry-run') || 'false';
+        const dryRun = dryRunStr === 'true';
+        logger.info(`Template: ${template}`);
+        logger.info(`Changelog file: ${changelogFile}`);
+        logger.info(`Dry run: ${dryRun}`);
         // Get GitHub context
         const context = github.context;
         const { owner, repo } = context.repo;
-        core.info(`Repository: ${owner}/${repo}`);
-        core.info(`Ref: ${context.ref}`);
+        logger.info(`Repository: ${owner}/${repo}`);
+        logger.info(`Ref: ${context.ref}`);
         // Extract version from tag
         const version = (0, utils_1.extractVersion)(context.ref);
-        core.info(`Detected version: ${version}`);
-        // Validate version format
-        if (!(0, utils_1.isValidSemver)(version)) {
-            throw new Error(`Invalid tag format: ${version}. Expected Semantic Versioning (e.g., v1.2.3)`);
+        logger.info(`Detected version: ${version}`);
+        // Validate all inputs
+        const validation = await (0, validator_1.validateInputs)({
+            version,
+            template,
+            changelogFile,
+            token,
+            versionFile: versionFileStr,
+            createGithubRelease: createGithubReleaseStr,
+            dryRun: dryRunStr,
+            excludeLabels: '',
+        });
+        if (!validation.valid) {
+            throw new Error('Input validation failed. Please check the errors above.');
         }
-        // Initialize collector
+        // Initialize collector with retry
+        logger.section('Collecting Information');
         const collector = new collector_1.Collector(token, owner, repo);
-        // Get tags
-        core.info('Fetching tags...');
-        const tags = await collector.getTags();
+        // Get tags with retry
+        logger.info('Fetching tags...');
+        const tags = await (0, retry_1.withGitHubRetry)(() => collector.getTags());
         // Find previous tag
         const currentTagIndex = tags.findIndex((t) => t.name === version);
         const previousTag = currentTagIndex >= 0 && currentTagIndex < tags.length - 1
             ? tags[currentTagIndex + 1]
             : null;
         if (previousTag) {
-            core.info(`Previous version: ${previousTag.name}`);
+            logger.info(`Previous version: ${previousTag.name}`);
         }
         else {
-            core.info('No previous tag found (first release)');
+            logger.info('No previous tag found (first release)');
         }
-        // Collect commits
-        core.info(`Fetching commits from ${previousTag?.name || 'start'} to ${version}...`);
-        let commits = await collector.getCommitsBetweenTags(previousTag?.sha || null, version);
+        // Collect commits with retry
+        logger.info(`Fetching commits from ${previousTag?.name || 'start'} to ${version}...`);
+        let commits = await (0, retry_1.withGitHubRetry)(() => collector.getCommitsBetweenTags(previousTag?.sha || null, version));
         // Apply filters to commits
-        core.info('Applying filters...');
+        logger.section('Filtering Changes');
         commits = (0, filter_1.applyCommitFilters)(commits, {
             excludeChore: true,
             excludeMerge: false,
         });
         // Parse commits
-        core.info('Parsing commits with Conventional Commits format...');
+        logger.section('Parsing Commits');
+        logger.info('Parsing commits with Conventional Commits format...');
         const parsedCommits = (0, parser_1.parseCommits)(commits);
         // Categorize changes
+        logger.section('Categorizing Changes');
         const categories = (0, categorizer_1.categorizeCommits)(parsedCommits);
         (0, categorizer_1.logCategoryStats)(categories);
         // Extract contributors with bot filtering
+        logger.section('Extracting Contributors');
         const commitContributors = (0, contributors_1.extractContributorsFromCommits)(parsedCommits);
         const contributors = (0, contributors_1.mergeContributors)(commitContributors);
-        core.info(`Contributors: ${contributors.length}`);
+        logger.info(`Contributors: ${contributors.length}`);
         // Generate compare URL
         const compareUrl = previousTag
             ? (0, utils_1.generateCompareUrl)(owner, repo, previousTag.name, version)
@@ -120,38 +138,43 @@ async function run() {
             owner,
             repo,
         };
-        // Generate release notes
-        core.info('Generating release notes...');
-        const releaseNotes = (0, writer_1.generateReleaseNotes)(releaseData);
+        // Generate release notes using template
+        logger.section('Generating Release Notes');
+        logger.info(`Using template: ${template}`);
+        const releaseNotes = (0, writer_1.generateReleaseNotes)(releaseData, template);
         // Write to CHANGELOG.md
-        core.info(`Writing to ${changelogFile}...`);
+        logger.section('Writing Files');
+        logger.info(`Writing to ${changelogFile}...`);
         await (0, writer_1.writeChangelog)(changelogFile, releaseNotes, dryRun);
         // Write version-specific file
         if (versionFile) {
-            core.info(`Writing version file...`);
+            logger.info(`Writing version file...`);
             await (0, writer_1.writeVersionFile)(version, releaseNotes, dryRun);
         }
-        // Create GitHub Release
+        // Create GitHub Release with retry
         let releaseUrl = '';
         if (createGithubRelease) {
             if (dryRun) {
-                core.info(`[DRY RUN] Would create GitHub Release: ${version}`);
+                logger.info(`[DRY RUN] Would create GitHub Release: ${version}`);
             }
             else {
-                core.info('Creating GitHub Release...');
+                logger.section('Creating GitHub Release');
                 const releasesManager = new releases_1.ReleasesManager(token, owner, repo);
-                releaseUrl = await releasesManager.createRelease(version, releaseNotes);
+                releaseUrl = await (0, retry_1.withGitHubRetry)(() => releasesManager.createRelease(version, releaseNotes));
             }
         }
         // Set outputs
         core.setOutput('release-notes', releaseNotes);
         core.setOutput('version', version);
         core.setOutput('changelog-url', releaseUrl);
-        core.info('✓ Release notes generated successfully!');
+        const duration = Date.now() - startTime;
+        logger.section('Summary');
+        logger.success(`Release notes generated successfully in ${duration}ms!`);
     }
     catch (error) {
         if (error instanceof Error) {
             core.setFailed(`Action failed: ${error.message}`);
+            logger.error(`Stack trace: ${error.stack}`);
         }
         else {
             core.setFailed('Action failed with unknown error');

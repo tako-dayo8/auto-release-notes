@@ -3,9 +3,9 @@
  */
 import type { ReleaseData } from './types';
 /**
- * Generate release notes content
+ * Generate release notes content using template
  */
-export declare function generateReleaseNotes(data: ReleaseData): string;
+export declare function generateReleaseNotes(data: ReleaseData, templateName?: string): string;
 /**
  * Write content to CHANGELOG.md
  */

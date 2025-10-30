@@ -42,84 +42,13 @@ exports.writeVersionFile = writeVersionFile;
 const fs = __importStar(require("fs/promises"));
 const path = __importStar(require("path"));
 const core = __importStar(require("@actions/core"));
+const templates_1 = require("./templates");
 /**
- * Category display names and emojis
+ * Generate release notes content using template
  */
-const CATEGORY_DISPLAY = {
-    breaking: { emoji: '🚨', title: 'Breaking Changes' },
-    features: { emoji: '✨', title: 'Features' },
-    bugFixes: { emoji: '🐛', title: 'Bug Fixes' },
-    documentation: { emoji: '📚', title: 'Documentation' },
-    performance: { emoji: '⚡', title: 'Performance' },
-    refactoring: { emoji: '🔧', title: 'Refactoring' },
-    style: { emoji: '🎨', title: 'Style' },
-    tests: { emoji: '✅', title: 'Tests' },
-    build: { emoji: '🔨', title: 'Build System' },
-    ci: { emoji: '🤖', title: 'CI/CD' },
-    other: { emoji: '📦', title: 'Other Changes' },
-};
-/**
- * Format a change item
- */
-function formatChangeItem(item, owner, repo) {
-    let line = `- ${item.description}`;
-    if (item.prNumber) {
-        line += ` ([#${item.prNumber}](https://github.com/${owner}/${repo}/pull/${item.prNumber}))`;
-    }
-    if (item.author) {
-        line += ` @${item.author}`;
-    }
-    return line;
-}
-/**
- * Format a category section
- */
-function formatCategory(categoryKey, items, owner, repo) {
-    if (items.length === 0)
-        return '';
-    const display = CATEGORY_DISPLAY[categoryKey] || {
-        emoji: '📦',
-        title: 'Other Changes',
-    };
-    let section = `\n### ${display.emoji} ${display.title}\n\n`;
-    for (const item of items) {
-        section += formatChangeItem(item, owner, repo) + '\n';
-    }
-    return section;
-}
-/**
- * Generate release notes content
- */
-function generateReleaseNotes(data) {
-    let content = `## [${data.version}] - ${data.date}\n`;
-    // Add categories in order
-    const categories = [
-        'breaking',
-        'features',
-        'bugFixes',
-        'documentation',
-        'performance',
-        'refactoring',
-        'style',
-        'tests',
-        'build',
-        'ci',
-        'other',
-    ];
-    for (const category of categories) {
-        const items = data.changes[category];
-        content += formatCategory(category, items, data.owner, data.repo);
-    }
-    // Add contributors
-    if (data.contributors.length > 0) {
-        content += `\n### Contributors\n\n`;
-        content += data.contributors.map((c) => `@${c}`).join(', ') + '\n';
-    }
-    // Add compare URL
-    if (data.compareUrl) {
-        content += `\n**Full Changelog**: ${data.compareUrl}\n`;
-    }
-    return content;
+function generateReleaseNotes(data, templateName = 'standard') {
+    const template = (0, templates_1.getTemplate)(templateName);
+    return template.generate(data);
 }
 /**
  * Write content to CHANGELOG.md
