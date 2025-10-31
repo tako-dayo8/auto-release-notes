@@ -44,6 +44,26 @@ jobs:
           template: detailed
           create-github-release: true
 
+      # Update major version tag (e.g., v1.2.3 -> v1)
+      - name: Update major version tag
+        run: |
+          # Extract major version from tag (v1.2.3 -> v1)
+          TAG_NAME="${{ github.ref_name }}"
+          MAJOR_VERSION=$(echo "$TAG_NAME" | sed -E 's/^v([0-9]+)\..*/v\1/')
+
+          echo "Current tag: $TAG_NAME"
+          echo "Major version tag: $MAJOR_VERSION"
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create or update major version tag
+          git tag -fa "$MAJOR_VERSION" -m "Update $MAJOR_VERSION to $TAG_NAME"
+          git push origin "$MAJOR_VERSION" --force
+
+          echo "Updated $MAJOR_VERSION tag to point to $TAG_NAME"
+
       # Optional: Commit dist/ changes back to the tag
       - name: Commit dist/ changes
         if: ${{ hashFiles('dist/**') != '' }}
