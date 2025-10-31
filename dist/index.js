@@ -30806,7 +30806,7 @@ class Collector {
                     title: pr.title,
                     body: pr.body,
                     author: pr.user?.login || 'unknown',
-                    labels: pr.labels.map((label) => typeof label === 'string' ? label : label.name || ''),
+                    labels: pr.labels.map((label) => (typeof label === 'string' ? label : label.name || '')),
                     mergedAt,
                     closedIssues,
                 });
@@ -30845,7 +30845,7 @@ class Collector {
             return {
                 number: data.number,
                 title: data.title,
-                labels: data.labels.map((label) => typeof label === 'string' ? label : label.name || ''),
+                labels: data.labels.map((label) => (typeof label === 'string' ? label : label.name || '')),
             };
         }
         catch (error) {
@@ -31399,9 +31399,7 @@ async function run() {
         const tags = await (0, retry_1.withGitHubRetry)(() => collector.getTags());
         // Find previous tag
         const currentTagIndex = tags.findIndex((t) => t.name === version);
-        const previousTag = currentTagIndex >= 0 && currentTagIndex < tags.length - 1
-            ? tags[currentTagIndex + 1]
-            : null;
+        const previousTag = currentTagIndex >= 0 && currentTagIndex < tags.length - 1 ? tags[currentTagIndex + 1] : null;
         if (previousTag) {
             logger.info(`Previous version: ${previousTag.name}`);
         }

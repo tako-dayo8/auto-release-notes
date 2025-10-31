@@ -93,9 +93,7 @@ async function run() {
         const tags = await (0, retry_1.withGitHubRetry)(() => collector.getTags());
         // Find previous tag
         const currentTagIndex = tags.findIndex((t) => t.name === version);
-        const previousTag = currentTagIndex >= 0 && currentTagIndex < tags.length - 1
-            ? tags[currentTagIndex + 1]
-            : null;
+        const previousTag = currentTagIndex >= 0 && currentTagIndex < tags.length - 1 ? tags[currentTagIndex + 1] : null;
         if (previousTag) {
             logger.info(`Previous version: ${previousTag.name}`);
         }
