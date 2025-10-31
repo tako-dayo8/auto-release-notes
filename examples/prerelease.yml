@@ -1,0 +1,36 @@
+# Prerelease Example
+# Handles both stable releases and prereleases (alpha, beta, rc)
+
+name: Release (Stable and Prerelease)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'           # Stable: v1.0.0, v2.3.5
+      - 'v*.*.*-alpha.*'   # Alpha: v1.0.0-alpha.1
+      - 'v*.*.*-beta.*'    # Beta: v1.0.0-beta.1
+      - 'v*.*.*-rc.*'      # Release Candidate: v1.0.0-rc.1
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+      issues: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Release Notes
+        uses: your-username/auto-release-notes@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          template: standard
+
+      # The action automatically detects prerelease versions
+      # (containing -alpha, -beta, -rc, -pre)
+      # and marks GitHub Releases accordingly

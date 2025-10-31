@@ -1,0 +1,39 @@
+# Dry Run Example
+# Preview release notes without making any changes
+
+name: Preview Release Notes
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Preview Release Notes
+        uses: your-username/auto-release-notes@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          dry-run: true  # No files will be written, no releases created
+
+      # This will output:
+      # [DRY RUN] Generated release notes:
+      # ----------------------------------------
+      # ## [1.0.0] - 2025-01-31
+      # ...
+      # ----------------------------------------
+      # [DRY RUN] Would write to: CHANGELOG.md
+      # [DRY RUN] Would write to: changelog/1.0.0.md
+      # [DRY RUN] Would create GitHub Release: v1.0.0

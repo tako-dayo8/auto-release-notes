@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify dist/ directory
+        run: |
+          if [ ! -f "dist/index.js" ]; then
+            echo "Error: dist/index.js not found"
+            exit 1
+          fi
+
+      - name: Generate Release Notes (Dogfooding)
+        uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          template: detailed
+          create-github-release: true
+
+      # Optional: Commit dist/ changes back to the tag
+      - name: Commit dist/ changes
+        if: ${{ hashFiles('dist/**') != '' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/
+          git diff --cached --quiet || git commit -m "chore: update dist for ${{ github.ref_name }}"
+          git push origin HEAD:main
+
+permissions:
+  contents: write
+  pull-requests: read
+  issues: read

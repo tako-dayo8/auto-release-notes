@@ -1,0 +1,32 @@
+# Custom Changelog Location Example
+# Stores changelog in a custom directory
+
+name: Release with Custom Paths
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+      issues: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Release Notes
+        uses: your-username/auto-release-notes@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          changelog-file: docs/releases/CHANGELOG.md  # Custom location
+          version-file: true  # Creates docs/releases/changelog/1.0.0.md
+
+      # The action will create the directory structure if it doesn't exist

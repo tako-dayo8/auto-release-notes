@@ -1,0 +1,28 @@
+# Basic Usage Example
+# This is the simplest configuration using all default settings
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+      issues: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required to fetch all git history
+
+      - name: Generate Release Notes
+        uses: your-username/auto-release-notes@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
