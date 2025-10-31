@@ -119,7 +119,9 @@ export function validateBoolean(value: string, name: string): ValidationResult {
 
   if (value !== 'true' && value !== 'false' && value !== '') {
     result.valid = false;
-    result.errors.push(`Invalid boolean value for '${name}': '${value}'. Expected 'true' or 'false'`);
+    result.errors.push(
+      `Invalid boolean value for '${name}': '${value}'. Expected 'true' or 'false'`
+    );
   }
 
   return result;

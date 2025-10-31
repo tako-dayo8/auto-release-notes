@@ -17,10 +17,7 @@ export function linkifyIssues(text: string, owner: string, repo: string): string
  * Convert PR numbers to GitHub links
  */
 export function linkifyPRs(text: string, owner: string, repo: string): string {
-  return text.replace(
-    /(?<!\[)#(\d+)(?!\])/g,
-    `[#$1](https://github.com/${owner}/${repo}/pull/$1)`
-  );
+  return text.replace(/(?<!\[)#(\d+)(?!\])/g, `[#$1](https://github.com/${owner}/${repo}/pull/$1)`);
 }
 
 /**

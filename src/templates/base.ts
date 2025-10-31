@@ -18,12 +18,7 @@ export interface Template {
   /**
    * Format a category section
    */
-  formatCategory(
-    categoryKey: string,
-    items: ChangeItem[],
-    owner: string,
-    repo: string
-  ): string;
+  formatCategory(categoryKey: string, items: ChangeItem[], owner: string, repo: string): string;
 }
 
 /**

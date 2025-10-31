@@ -128,10 +128,7 @@ export function categorizePullRequests(prs: PullRequest[]): CategorizedChanges {
 /**
  * Merge two categorized changes
  */
-export function mergeCategories(
-  a: CategorizedChanges,
-  b: CategorizedChanges
-): CategorizedChanges {
+export function mergeCategories(a: CategorizedChanges, b: CategorizedChanges): CategorizedChanges {
   return {
     breaking: [...a.breaking, ...b.breaking],
     features: [...a.features, ...b.features],

@@ -154,9 +154,7 @@ export class Collector {
           title: pr.title,
           body: pr.body,
           author: pr.user?.login || 'unknown',
-          labels: pr.labels.map((label) =>
-            typeof label === 'string' ? label : label.name || ''
-          ),
+          labels: pr.labels.map((label) => (typeof label === 'string' ? label : label.name || '')),
           mergedAt,
           closedIssues,
         });
@@ -200,9 +198,7 @@ export class Collector {
       return {
         number: data.number,
         title: data.title,
-        labels: data.labels.map((label) =>
-          typeof label === 'string' ? label : label.name || ''
-        ),
+        labels: data.labels.map((label) => (typeof label === 'string' ? label : label.name || '')),
       };
     } catch (error) {
       core.debug(`Issue not found: #${issueNumber}`);

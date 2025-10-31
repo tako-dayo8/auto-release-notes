@@ -35,10 +35,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
 /**
  * Execute a function with retry logic
  */
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  options: RetryOptions = {}
-): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   let lastError: Error = new Error('Unknown error');
 
@@ -73,9 +70,7 @@ export async function withRetry<T>(
     }
   }
 
-  throw new Error(
-    `Failed after ${opts.maxRetries} attempts. Last error: ${lastError.message}`
-  );
+  throw new Error(`Failed after ${opts.maxRetries} attempts. Last error: ${lastError.message}`);
 }
 
 /**

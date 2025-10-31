@@ -16,12 +16,7 @@ export class MinimalTemplate implements Template {
     return line;
   }
 
-  formatCategory(
-    _categoryKey: string,
-    items: ChangeItem[],
-    owner: string,
-    repo: string
-  ): string {
+  formatCategory(_categoryKey: string, items: ChangeItem[], owner: string, repo: string): string {
     if (items.length === 0) return '';
 
     let section = '';

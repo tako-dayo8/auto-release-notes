@@ -69,9 +69,7 @@ export function mergeContributors(...contributorLists: string[][]): string[] {
     }
   }
 
-  return Array.from(allContributors).sort((a, b) =>
-    a.toLowerCase().localeCompare(b.toLowerCase())
-  );
+  return Array.from(allContributors).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 }
 
 /**

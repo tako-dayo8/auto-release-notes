@@ -4,11 +4,7 @@ import { Collector } from './collector';
 import { parseCommits } from './parser';
 import { categorizeCommits, logCategoryStats } from './categorizer';
 import { generateReleaseNotes, writeChangelog, writeVersionFile } from './writer';
-import {
-  extractVersion,
-  formatDate,
-  generateCompareUrl,
-} from './utils';
+import { extractVersion, formatDate, generateCompareUrl } from './utils';
 import { applyCommitFilters } from './filter';
 import { mergeContributors, extractContributorsFromCommits } from './contributors';
 import { ReleasesManager } from './releases';
@@ -76,9 +72,7 @@ async function run(): Promise<void> {
     // Find previous tag
     const currentTagIndex = tags.findIndex((t) => t.name === version);
     const previousTag =
-      currentTagIndex >= 0 && currentTagIndex < tags.length - 1
-        ? tags[currentTagIndex + 1]
-        : null;
+      currentTagIndex >= 0 && currentTagIndex < tags.length - 1 ? tags[currentTagIndex + 1] : null;
 
     if (previousTag) {
       logger.info(`Previous version: ${previousTag.name}`);

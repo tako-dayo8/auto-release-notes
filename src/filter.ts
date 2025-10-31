@@ -59,10 +59,7 @@ export function hasExcludeLabel(pr: PullRequest, excludeLabels: string[]): boole
 /**
  * Filter out PRs with exclude labels
  */
-export function filterPRsByLabels(
-  prs: PullRequest[],
-  excludeLabels: string[]
-): PullRequest[] {
+export function filterPRsByLabels(prs: PullRequest[], excludeLabels: string[]): PullRequest[] {
   if (excludeLabels.length === 0) {
     return prs;
   }
@@ -103,9 +100,6 @@ export function applyCommitFilters(
 /**
  * Apply all filters to PRs
  */
-export function applyPRFilters(
-  prs: PullRequest[],
-  excludeLabels: string[]
-): PullRequest[] {
+export function applyPRFilters(prs: PullRequest[], excludeLabels: string[]): PullRequest[] {
   return filterPRsByLabels(prs, excludeLabels);
 }

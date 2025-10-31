@@ -20,12 +20,7 @@ export class StandardTemplate implements Template {
     return line;
   }
 
-  formatCategory(
-    categoryKey: string,
-    items: ChangeItem[],
-    owner: string,
-    repo: string
-  ): string {
+  formatCategory(categoryKey: string, items: ChangeItem[], owner: string, repo: string): string {
     if (items.length === 0) return '';
 
     const display = CATEGORY_DISPLAY[categoryKey] || {
