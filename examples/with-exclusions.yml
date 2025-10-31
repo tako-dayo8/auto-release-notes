@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
 
       - name: Generate Release Notes
-        uses: your-username/auto-release-notes@v1
+        uses: tako-dayo8/auto-release-notes@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           # Exclude PRs with these labels from the changelog

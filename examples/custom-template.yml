@@ -24,14 +24,14 @@ jobs:
 
       # Example 1: Detailed template with all information
       - name: Generate Detailed Release Notes
-        uses: your-username/auto-release-notes@v1
+        uses: tako-dayo8/auto-release-notes@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           template: detailed  # Includes commit hashes, stats, and contributor details
 
       # Example 2: Minimal template for simple releases
       # - name: Generate Minimal Release Notes
-      #   uses: your-username/auto-release-notes@v1
+      #   uses: tako-dayo8/auto-release-notes@v1
       #   with:
       #     github-token: ${{ secrets.GITHUB_TOKEN }}
       #     template: minimal  # Simple bullet list without categories

@@ -2,8 +2,8 @@
 
 A TypeScript-based GitHub Action that automatically generates release notes from PRs, commits, and issues when you push a new tag. Supports Conventional Commits, multiple output templates, and seamless GitHub Releases integration.
 
-[![Test](https://github.com/your-username/auto-release-notes/workflows/Test/badge.svg)](https://github.com/your-username/auto-release-notes/actions)
-[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)](https://github.com/your-username/auto-release-notes)
+[![Test](https://github.com/tako-dayo8/auto-release-notes/workflows/Test/badge.svg)](https://github.com/tako-dayo8/auto-release-notes/actions)
+[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)](https://github.com/tako-dayo8/auto-release-notes)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 English | [日本語](./README_JP.md)
@@ -32,7 +32,7 @@ _(Coming soon)_
 Add this action to your workflow by referencing this repository:
 
 ```yaml
-- uses: your-username/auto-release-notes@v1
+- uses: tako-dayo8/auto-release-notes@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -66,7 +66,7 @@ jobs:
           fetch-depth: 0 # Required to fetch all git history
 
       - name: Generate Release Notes
-        uses: your-username/auto-release-notes@v1
+        uses: tako-dayo8/auto-release-notes@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           template: standard
@@ -77,7 +77,7 @@ jobs:
 
 ```yaml
 - name: Generate Release Notes
-  uses: your-username/auto-release-notes@v1
+  uses: tako-dayo8/auto-release-notes@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     template: detailed
@@ -243,7 +243,7 @@ Preview generated release notes without making any changes:
 
 ```yaml
 - name: Preview Release Notes
-  uses: your-username/auto-release-notes@v1
+  uses: tako-dayo8/auto-release-notes@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     dry-run: true

@@ -2,8 +2,8 @@
 
 新しいタグをプッシュした際に、PR・コミット・Issueから自動的にリリースノートを生成するTypeScriptベースのGitHub Actionです。Conventional Commits、複数の出力テンプレート、GitHub Releasesとのシームレスな連携をサポートしています。
 
-[![Test](https://github.com/your-username/auto-release-notes/workflows/Test/badge.svg)](https://github.com/your-username/auto-release-notes/actions)
-[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)](https://github.com/your-username/auto-release-notes)
+[![Test](https://github.com/tako-dayo8/auto-release-notes/workflows/Test/badge.svg)](https://github.com/tako-dayo8/auto-release-notes/actions)
+[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)](https://github.com/tako-dayo8/auto-release-notes)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [English](./README.md) | 日本語
@@ -32,7 +32,7 @@
 ワークフローでこのリポジトリを参照してアクションを追加：
 
 ```yaml
-- uses: your-username/auto-release-notes@v1
+- uses: tako-dayo8/auto-release-notes@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -66,7 +66,7 @@ jobs:
           fetch-depth: 0  # 全Git履歴の取得に必要
 
       - name: Generate Release Notes
-        uses: your-username/auto-release-notes@v1
+        uses: tako-dayo8/auto-release-notes@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           template: standard
@@ -77,7 +77,7 @@ jobs:
 
 ```yaml
 - name: Generate Release Notes
-  uses: your-username/auto-release-notes@v1
+  uses: tako-dayo8/auto-release-notes@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     template: detailed
@@ -234,7 +234,7 @@ permissions:
 
 ```yaml
 - name: Preview Release Notes
-  uses: your-username/auto-release-notes@v1
+  uses: tako-dayo8/auto-release-notes@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     dry-run: true
