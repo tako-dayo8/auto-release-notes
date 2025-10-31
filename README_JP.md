@@ -302,23 +302,50 @@ with:
 - 実行頻度を減らす
 - より高いレート制限を持つパーソナルアクセストークンの使用を検討
 
-## 開発
+## コントリビューション
 
-開発ガイドラインは[CONTRIBUTING.md](CONTRIBUTING.md)を参照してください。
+貢献を歓迎します！さまざまな方法で協力できます：
 
-### テストの実行
+- 🐛 [バグを報告](https://github.com/tako-dayo8/auto-release-notes/issues/new?template=bug_report.yml)
+- ✨ [機能をリクエスト](https://github.com/tako-dayo8/auto-release-notes/issues/new?template=feature_request.yml)
+- 📚 [ドキュメントを改善](https://github.com/tako-dayo8/auto-release-notes/issues/new?template=documentation.yml)
+- 💡 [質問する](https://github.com/tako-dayo8/auto-release-notes/issues/new?template=question.yml)
+- 🔧 [プルリクエストを提出](https://github.com/tako-dayo8/auto-release-notes/pulls)
+
+開発プロセスとコーディング規約の詳細については、[貢献ガイド](CONTRIBUTING.md)をお読みください。
+
+### 開発環境のセットアップ
 
 ```bash
+# クローンとインストール
+git clone https://github.com/tako-dayo8/auto-release-notes.git
+cd auto-release-notes
+npm install
+
+# テストを実行
 npm test              # 全テストを実行
 npm run test:watch   # ウォッチモードでテストを実行
 npm run test:coverage # カバレッジレポート付きでテストを実行
-```
 
-### ビルド
-
-```bash
+# ビルド
 npm run build  # TypeScriptをコンパイルしてnccでバンドル
+npm run lint   # コードスタイルをチェック
+npm run format # コードをフォーマット
 ```
+
+## セキュリティ
+
+セキュリティは最優先事項です。セキュリティの脆弱性を発見した場合：
+
+- パブリックなイシューを開か**ないで**ください
+- [GitHub Security Advisories](https://github.com/tako-dayo8/auto-release-notes/security/advisories)経由で報告してください
+- 詳細は[セキュリティポリシー](.github/SECURITY.md)を参照してください
+
+## コミュニティ
+
+- 💬 [GitHub Discussions](https://github.com/tako-dayo8/auto-release-notes/discussions) - 質問やアイデアを共有
+- 📣 [Issues](https://github.com/tako-dayo8/auto-release-notes/issues) - バグ報告や機能リクエスト
+- 🤝 [行動規範](.github/CODE_OF_CONDUCT.md) - コミュニティ規範
 
 ## ライセンス
 

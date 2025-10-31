@@ -314,23 +314,50 @@ The action includes retry logic with exponential backoff. For very large reposit
 - Running less frequently
 - Using a personal access token with higher rate limits
 
-## Development
+## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+We welcome contributions! There are many ways to help:
 
-### Running Tests
+- 🐛 [Report bugs](https://github.com/tako-dayo8/auto-release-notes/issues/new?template=bug_report.yml)
+- ✨ [Request features](https://github.com/tako-dayo8/auto-release-notes/issues/new?template=feature_request.yml)
+- 📚 [Improve documentation](https://github.com/tako-dayo8/auto-release-notes/issues/new?template=documentation.yml)
+- 💡 [Ask questions](https://github.com/tako-dayo8/auto-release-notes/issues/new?template=question.yml)
+- 🔧 [Submit pull requests](https://github.com/tako-dayo8/auto-release-notes/pulls)
+
+Please read our [Contributing Guide](CONTRIBUTING.md) for details on our development process and coding standards.
+
+### Development Setup
 
 ```bash
+# Clone and install
+git clone https://github.com/tako-dayo8/auto-release-notes.git
+cd auto-release-notes
+npm install
+
+# Run tests
 npm test              # Run all tests
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with coverage report
-```
 
-### Building
-
-```bash
+# Build
 npm run build  # Compile TypeScript and bundle with ncc
+npm run lint   # Check code style
+npm run format # Format code
 ```
+
+## Security
+
+Security is a top priority. If you discover a security vulnerability:
+
+- **Do not** open a public issue
+- Report it via [GitHub Security Advisories](https://github.com/tako-dayo8/auto-release-notes/security/advisories)
+- See our [Security Policy](.github/SECURITY.md) for details
+
+## Community
+
+- 💬 [GitHub Discussions](https://github.com/tako-dayo8/auto-release-notes/discussions) - Ask questions and share ideas
+- 📣 [Issues](https://github.com/tako-dayo8/auto-release-notes/issues) - Report bugs and request features
+- 🤝 [Code of Conduct](.github/CODE_OF_CONDUCT.md) - Our community standards
 
 ## License
 

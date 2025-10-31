@@ -293,36 +293,64 @@ For breaking changes, either:
 
 ## Reporting Issues
 
-### Bug Reports
+We provide several issue templates to help you report problems or suggest improvements effectively.
 
-Include:
+### Using Issue Templates
 
-1. **Description**: Clear description of the bug
-2. **Steps to Reproduce**: Minimal steps to reproduce the issue
-3. **Expected Behavior**: What should happen
-4. **Actual Behavior**: What actually happens
-5. **Environment**:
-   - OS and version
-   - Node.js version
-   - Action version
-6. **Logs**: Relevant error messages or logs
-7. **Additional Context**: Screenshots, workflow files, etc.
+When you create a new issue, you'll be prompted to choose from the following templates:
 
-### Feature Requests
+#### 1. **Bug Report** 🐛
+Use this template when reporting bugs or unexpected behavior.
 
-Include:
+The template will guide you through providing:
+- Bug description and steps to reproduce
+- Expected vs. actual behavior
+- Action configuration and version
+- Relevant log output
 
-1. **Use Case**: Why is this feature needed?
-2. **Proposed Solution**: How should it work?
-3. **Alternatives**: Other approaches considered
-4. **Examples**: Examples of similar features elsewhere
+#### 2. **Feature Request** ✨
+Use this template to suggest new features or enhancements.
+
+The template will help you describe:
+- The problem you're trying to solve
+- Your proposed solution
+- Alternative approaches you've considered
+- Usage examples
+
+#### 3. **Documentation Improvement** 📚
+Use this template to suggest documentation improvements.
+
+You'll be asked to specify:
+- Which documentation needs improvement (README, examples, etc.)
+- What's wrong or missing
+- Suggested improvements
+
+#### 4. **Question** ❓
+Use this template to ask questions about using the action.
+
+The template helps you provide:
+- Your question and context
+- What you've already tried
+- Your current configuration
+
+### Additional Resources
+
+Before creating an issue:
+- Check [existing issues](https://github.com/tako-dayo8/auto-release-notes/issues) to avoid duplicates
+- Review the [README](https://github.com/tako-dayo8/auto-release-notes#readme) and [examples](https://github.com/tako-dayo8/auto-release-notes/tree/main/examples)
+- Visit [GitHub Discussions](https://github.com/tako-dayo8/auto-release-notes/discussions) for community support
 
 ## Code of Conduct
 
+This project adheres to the [Contributor Covenant Code of Conduct](.github/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
+
+Key principles:
 - Be respectful and inclusive
 - Provide constructive feedback
 - Focus on the code, not the person
 - Help maintain a welcoming community
+
+Please report any unacceptable behavior by opening an issue or contacting the project maintainers.
 
 ## Questions?
 

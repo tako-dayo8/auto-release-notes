@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/tako-dayo8/auto-release-notes/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: README Documentation
+    url: https://github.com/tako-dayo8/auto-release-notes#readme
+    about: Check out the documentation before opening an issue
+  - name: Examples
+    url: https://github.com/tako-dayo8/auto-release-notes/tree/main/examples
+    about: Browse workflow examples for common use cases
