@@ -131,3 +131,78 @@ Core modules by responsibility:
 - Output: `writer.ts`, `releases.ts`, `templates/`
 - Utilities: `utils.ts`, `logger.ts`, `retry.ts`, `validator.ts`
 - Types: `types.ts`
+
+## Project Status
+
+### Current Release: v1.0.0
+- **Repository**: https://github.com/tako-dayo8/auto-release-notes
+- **Released**: 2025-10-31
+- **Status**: Production-ready, publicly available
+
+### Testing
+- **Test Suite**: 188 unit tests (all passing)
+- **Coverage**: 99.32% (exceeding 80% target)
+- **Test Files**: Located in `tests/unit/`
+  - `utils.test.ts` - Version validation, date formatting, URL parsing
+  - `parser.test.ts` - Conventional Commits parsing
+  - `categorizer.test.ts` - Change categorization logic
+  - `filter.test.ts` - Filtering chore/merge commits
+  - `contributors.test.ts` - Bot detection and contributor extraction
+  - `validator.test.ts` - Input validation
+  - `logger.test.ts` - Logging functionality
+
+### Documentation
+- **README.md** - Comprehensive English documentation
+- **README_JP.md** - Japanese translation
+- **CONTRIBUTING.md** - Development guidelines and contribution process
+- **examples/** - 7 workflow examples demonstrating various use cases
+  - Basic usage, custom templates, exclusions, dry-run, prerelease, custom paths, etc.
+
+### CI/CD
+All workflows are configured and passing:
+- **Test Workflow** (`.github/workflows/test.yml`)
+  - Multi-OS: Ubuntu, Windows, macOS
+  - Multi-version: Node.js 18.x, 20.x
+  - Codecov integration enabled
+- **Lint Workflow** (`.github/workflows/lint.yml`)
+  - ESLint, Prettier, TypeScript compilation checks
+- **Release Workflow** (`.github/workflows/release.yml`)
+  - Dogfooding: Uses the action itself to generate release notes
+  - Triggered on tag push
+
+### Deployment Notes
+- Package-lock.json is committed for CI consistency
+- Code is formatted with Prettier (run `npm run format` before committing)
+- All code follows ESLint rules defined in `.eslintrc.json`
+- Distribution bundle (`dist/index.js`) must be rebuilt with `npm run build` after changes
+
+### Usage
+Users can now use this action in their workflows:
+```yaml
+- uses: tako-dayo8/auto-release-notes@v1
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    template: detailed
+```
+
+## Development Phases (Completed)
+
+✅ **Phase 1**: Project Setup (package.json, TypeScript config, basic structure)
+✅ **Phase 2**: Core Features (collector, parser, categorizer, basic templates)
+✅ **Phase 3**: Extended Features (writer, releases, multiple templates)
+✅ **Phase 4**: Advanced Features (retry logic, logger, validator)
+✅ **Phase 5**: Testing and Documentation (unit tests, docs, CI/CD, release)
+
+## Known Considerations
+
+### Optional Future Enhancements
+- Integration tests (currently not implemented)
+- E2E tests (currently not implemented)
+- Additional template customization options
+- Support for custom commit message formats beyond Conventional Commits
+
+### Troubleshooting Tips
+- If tests fail, check timezone handling in date tests (`utils.test.ts`)
+- If CI fails, ensure `package-lock.json` is committed and code is Prettier-formatted
+- If API rate limits occur, the retry logic will handle it automatically with exponential backoff
+- Breaking change detection works with both `!` suffix and `BREAKING CHANGE:` footer
