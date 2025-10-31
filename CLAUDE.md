@@ -168,7 +168,12 @@ All workflows are configured and passing:
   - ESLint, Prettier, TypeScript compilation checks
 - **Release Workflow** (`.github/workflows/release.yml`)
   - Dogfooding: Uses the action itself to generate release notes
-  - Triggered on tag push
+  - Triggered on tag push (v*.*.*)
+  - **Automated major version tag update**:
+    - Extracts major version from tag (e.g., v1.2.3 → v1)
+    - Creates or force-updates major version tag
+    - Allows users to use `@v1` for auto-updates
+    - Implemented in "Update major version tag" step
 
 ### Deployment Notes
 - Package-lock.json is committed for CI consistency
@@ -177,13 +182,76 @@ All workflows are configured and passing:
 - Distribution bundle (`dist/index.js`) must be rebuilt with `npm run build` after changes
 
 ### Usage
-Users can now use this action in their workflows:
+Users can use this action in their workflows with three methods:
+
 ```yaml
+# Recommended: Use major version tag (auto-updates to latest v1.x.x)
 - uses: tako-dayo8/auto-release-notes@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     template: detailed
+
+# Pin to specific version (for stability)
+- uses: tako-dayo8/auto-release-notes@v1.0.0
+
+# Use main branch (not recommended for production)
+- uses: tako-dayo8/auto-release-notes@main
 ```
+
+**Major Version Tag (`@v1`)**:
+- The `v1` tag automatically points to the latest v1.x.x release
+- Updated automatically by the release workflow (`.github/workflows/release.yml`)
+- When releasing v1.1.0, the workflow extracts major version and updates `v1` tag
+- Follows GitHub Actions best practices for version management
+
+### Community Health Files
+The repository includes comprehensive community documentation in `.github/`:
+
+**Issue Templates** (`.github/ISSUE_TEMPLATE/`):
+- `bug_report.yml` - Structured form for bug reports with required fields
+  - Bug description, reproduction steps, expected/actual behavior
+  - Action configuration, version, log output
+- `feature_request.yml` - Feature request template
+  - Problem statement, proposed solution, alternatives
+  - Usage examples, contribution willingness
+- `documentation.yml` - Documentation improvement template
+  - Documentation type (README, examples, etc.)
+  - Current issues and suggested improvements
+- `question.yml` - Question template for user support
+  - Question with context, what user has tried
+  - Current configuration
+- `config.yml` - Template configuration
+  - Disables blank issues
+  - Links to Discussions, README, Examples
+
+**Pull Request Template**:
+- `PULL_REQUEST_TEMPLATE.md` - Comprehensive PR checklist
+  - Description, related issues, type of change
+  - Testing checklist (unit tests, coverage, all tests pass)
+  - Documentation updates (README, README_JP, comments, examples)
+  - Code quality checklist (lint, format, build, review)
+
+**Governance Documents**:
+- `CODE_OF_CONDUCT.md` - Contributor Covenant 2.0
+  - Community standards and expected behavior
+  - Enforcement guidelines and reporting process
+- `SECURITY.md` - Security policy and vulnerability reporting
+  - Supported versions (v1.x.x currently supported)
+  - Vulnerability reporting via GitHub Security Advisories
+  - Security best practices (token security, version pinning, input validation)
+  - Response timeline and disclosure policy
+- `FUNDING.yml` - Sponsorship configuration (placeholder for future)
+
+**Documentation Updates**:
+- `CONTRIBUTING.md` updated with:
+  - Issue template usage guide
+  - Code of Conduct reference
+- `README.md` and `README_JP.md` updated with:
+  - Contributing section with links to all issue templates
+  - Security section with vulnerability reporting guidelines
+  - Community section (Discussions, Issues, Code of Conduct)
+
+These templates ensure contributors provide necessary information and maintainers can efficiently triage issues and review PRs.
 
 ## Development Phases (Completed)
 
@@ -192,6 +260,7 @@ Users can now use this action in their workflows:
 ✅ **Phase 3**: Extended Features (writer, releases, multiple templates)
 ✅ **Phase 4**: Advanced Features (retry logic, logger, validator)
 ✅ **Phase 5**: Testing and Documentation (unit tests, docs, CI/CD, release)
+✅ **Phase 6**: Community and Automation (issue templates, major version tags, enhanced workflows)
 
 ## Known Considerations
 
@@ -206,3 +275,88 @@ Users can now use this action in their workflows:
 - If CI fails, ensure `package-lock.json` is committed and code is Prettier-formatted
 - If API rate limits occur, the retry logic will handle it automatically with exponential backoff
 - Breaking change detection works with both `!` suffix and `BREAKING CHANGE:` footer
+
+## Release Process
+
+### Creating a New Release
+
+1. **Ensure all changes are committed and pushed to main**
+   ```bash
+   git status  # Should be clean
+   git push origin main
+   ```
+
+2. **Create and push a version tag** (triggers release workflow automatically)
+   ```bash
+   git tag -a v1.1.0 -m "Release v1.1.0"
+   git push origin v1.1.0
+   ```
+
+3. **Release workflow automatically**:
+   - Runs tests and builds the project
+   - Generates release notes using the action itself (dogfooding)
+   - Creates GitHub Release
+   - **Updates major version tag** (e.g., v1) to point to new version
+   - Users using `@v1` automatically get the latest v1.x.x release
+
+4. **Verify the release**:
+   ```bash
+   gh release view v1.1.0
+   git tag -l  # Should show both v1.1.0 and v1
+   ```
+
+### Manual Major Version Tag Update (if needed)
+
+If you need to manually update the major version tag:
+```bash
+git tag -fa v1 -m "Update to v1.1.0"
+git push origin v1 --force
+```
+
+However, this is now automated by the release workflow and should not be necessary.
+
+## Working with Issues and PRs
+
+### For Contributors
+
+When creating issues, use the appropriate template:
+- Bug reports: `.github/ISSUE_TEMPLATE/bug_report.yml`
+- Feature requests: `.github/ISSUE_TEMPLATE/feature_request.yml`
+- Documentation: `.github/ISSUE_TEMPLATE/documentation.yml`
+- Questions: `.github/ISSUE_TEMPLATE/question.yml`
+
+GitHub will automatically present these templates when creating a new issue.
+
+### For Maintainers
+
+When reviewing PRs:
+1. Check that PR template checklist is completed
+2. Verify tests pass (all CI checks green)
+3. Ensure code coverage is maintained (99%+)
+4. Verify documentation is updated if needed
+5. Check that code follows linting and formatting standards
+6. Review commit messages follow Conventional Commits
+
+## Important Notes for Future Development
+
+### Before Making Changes
+1. Create a new branch from `main`
+2. Make changes following coding standards
+3. Run `npm run format` before committing
+4. Run `npm test` to ensure all tests pass
+5. Run `npm run build` to verify build succeeds
+6. Run `npm run lint` to check for linting errors
+
+### When Adding New Features
+1. Update TypeScript types in `types.ts` if needed
+2. Add unit tests in `tests/unit/`
+3. Update relevant documentation (README.md, README_JP.md)
+4. Add examples to `examples/` if applicable
+5. Update CLAUDE.md with architectural changes
+6. Follow Conventional Commits for commit messages
+
+### When Fixing Bugs
+1. Add regression test first
+2. Fix the bug
+3. Verify test passes
+4. Update documentation if behavior changed
